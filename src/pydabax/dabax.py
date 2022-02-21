@@ -30,6 +30,7 @@ class Dabax:
 
     def read_db(self, symbol):
         entry = Query()
+        # noinspection PyTypeChecker
         return self.db.search(entry.symbol == symbol)[0]
 
     def get_entry(self, symbol, keys):
