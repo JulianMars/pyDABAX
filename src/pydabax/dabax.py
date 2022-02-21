@@ -17,7 +17,7 @@ __license__ = "mit"
 
 _logger = logging.getLogger(__name__)
 
-latest_json = Path(__file__).parent / "../data/xraydb.latest.json"
+latest_json = Path(__file__).parent / "data/xraydb.latest.json"
 
 
 class Dabax:
