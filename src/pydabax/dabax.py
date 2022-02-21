@@ -58,5 +58,5 @@ class Dabax:
         return df
 
 
-print(latest_json)
+print("Loading database from " + str(latest_json))
 dabax = Dabax(latest_json)
