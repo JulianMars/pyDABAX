@@ -24,6 +24,7 @@ from pydabax import __version__
 __author__ = "Julian Mars"
 __copyright__ = "Julian Mars"
 __license__ = "mit"
+__version__ = "0.01"
 
 _logger = logging.getLogger(__name__)
 
