@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-HERE SOME TEXT
+Access to dabax in TinyDB format.
 """
 
 import json
