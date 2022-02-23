@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-HERE SOME TEXT
+High level functions for energy and momentum dependent x-ray and neutron quantities.
 """
 
 import logging
@@ -636,16 +636,36 @@ class Compound(BaseElement):
     @staticmethod
     def parse_string_to_list(element_str):
         res = []
-        match = re.findall(r'[A-Z][a-z]?\d[+|-]\d*|[A-Z][a-z]?\d*|\((?:[^()]*(?:\(.*\))?[^()]*)+\)\d+', element_str)
+        match = re.findall(
+            r"[A-Z][a-z]?\d?[+|-]\d*(?:\.\d+)?|[A-Z][a-z]?\d*(?:\.\d+)?|\((?:[^()]*(?:\(.*\))?[^()]*)+\)\d+(?:\.\d+)?",
+            element_str,
+        )
         if match == [element_str]:
-            submatch = re.match(r'([A-Z][a-z]?(?:\d[+|-])?)(\d*)', element_str)
+            submatch = re.match(r"([A-Z][a-z]?(?:\d?[+|-])?)(\d*(?:\.\d+)?)", element_str)
             if submatch:
                 e = submatch.group(1)
-                n = 1 if submatch.group(2) == '' else int(submatch.group(2))
+                n = (
+                    1
+                    if submatch.group(2) == ""
+                    else (
+                        int(submatch.group(2))
+                        if float(submatch.group(2)).is_integer()
+                        else float(submatch.group(2))
+                    )
+                )
                 res.append([e, n])
             else:
-                subsub = re.match(r'\((.*)\)(\d*)', element_str)
-                nn = 1 if subsub.group(2) == "" else int(subsub.group(2))
+                print(element_str)
+                subsub = re.match(r"\((.*)\)(\d*(?:\.\d+)?)", element_str)
+                nn = (
+                    1
+                    if subsub.group(2) == ""
+                    else (
+                        int(subsub.group(2))
+                        if float(subsub.group(2)).is_integer()
+                        else float(subsub.group(2))
+                    )
+                )
                 ll = Compound.parse_string_to_list(subsub.group(1))
                 res.append([ll, nn])
         else:
