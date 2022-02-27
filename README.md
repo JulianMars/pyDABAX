@@ -95,11 +95,50 @@ Show all available entries for oxygen.
 from pydabax.dabax import dabax as dbx
 dbx.get_keys("O")
 ```
+>['atomic_number',
+ 'symbol',
+ 'name',
+ 'charge',
+ 'atomic_weight',
+ 'nist_f1f2_chantler',
+ 'nist_edges_chantler',
+ 'cxro_f1f2_henke',
+ 'nist_b_sears',
+ 'dabax_atomic_densities',
+ 'dabax_atomic_constants',
+ 'dabax_crosssec_mcmaster',
+ 'dabax_crosssec_compton_mcmaster',
+ 'dabax_ebind_1',
+ 'dabax_crosssec_brennancowan',
+ 'dabax_crosssec_xcom',
+ 'dabax_f1f1_brennancowan_long',
+ 'dabax_f1f1_brennancowan',
+ 'dabax_f0_waaskirf',
+ 'dabax_isf_balyuzi',
+ 'dabax_f1f2_chantler',
+ 'dabax_f1f2_henke']
+
 Get the CXRO Henke table for f1 and f2.
 ```python
 from pydabax.dabax import dabax as dbx
 dbx.get_table("O", "cxro_f1f2_henke")
 ```
 
+
+>E (eV)	f1	f2  
+0	10.0000	-9999.00000	0.703280  
+1	10.1617	-9999.00000	0.707226  
+2	10.3261	-9999.00000	0.707377  
+3	10.4931	-9999.00000	0.707528  
+4	10.6628	-9999.00000	0.707678  
+...	...	...	...  
+497	28135.1000	8.00267	0.002087  
+498	28590.2000	8.00248	0.002013  
+499	29052.6000	8.00230	0.001942  
+500	29522.5000	8.00212	0.001874  
+501	30000.0000	8.00194	0.001808  
+502 rows × 3 columns  
+
+
 The database file is in json format and can be thus viewed with all common json viewers.
-Jupyter lab comes with an integrated json viewer.
+Jupyter lab comes with an integrated json viewer.  
