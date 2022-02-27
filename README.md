@@ -1,4 +1,3 @@
-=======
 pyDABAX
 =======
 
@@ -86,6 +85,8 @@ ax.plot(Water.q, Water.f.real, label="H2O at 8.047 keV")
 ax.plot(Gold.q, Gold.f.real, label="Gold at 8.047 keV")
 _ = ax.legend(prop={"size": 8})
 ```
+
+<img src="./blob/formfactor.jpg" alt="formfactor" width="450"/>
 
 Accessing the X-ray database dabax
 ---------------------------------
