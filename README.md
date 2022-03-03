@@ -9,6 +9,19 @@ form-factors, absorption edges, and compton scattering.
 
 Installation
 ===========
+Package
+-------------------
+Install with pip into your current environment.
+
+```bash
+pip install pyDABAX
+```
+
+The following dependencies will be installed by pip:
+
+-  `numpy <https://www.numpy.org/>`
+-  `TinyDB <https://github.com/msiemens/tinydb>`
+-  `astropy <https://github.com/astropy/astropy>`
 
 Manual installation
 ----------------------
@@ -28,12 +41,6 @@ cd ./pyDABAX.git           # Change into the pyDABAX.git folder
 pip install .              # Use the pip package manager to install pyDABAX in your current python environment
 ```
 
-The following dependencies will be installed by pip:
-
--  `python <https://www.python.org/>`_
--  `numpy <https://www.numpy.org/>`_
--  `TinyDB <https://github.com/msiemens/tinydb>`_
--  `astropy <https://github.com/astropy/astropy>`_
 
 Usage
 =====
@@ -41,29 +48,27 @@ Usage
 High-level interface
 --------------------
 
+Getting Started 
+_____  
+
 Create compound from string with fixed energy.
 ```python
 from pydabax.elements import Compound
 Gold = Compound('Au', energy='10 keV', density='19.3 g/cm^3')
 ```
 
-Obtain refractive index,
+Obtain refractive index, x-ray form factor, and attenuation coefficient.
 ```python
 print('Refractive index: δ + βi = {:.3e} + {:.3e}i'.format(Gold.deltabeta.real, Gold.deltabeta.imag))
-```
->Refractive index: δ + βi = 2.987e-05 + 2.205e-06i
-
-x-ray form factor,
-```python
 print('Formfactor: f = {:.3f} + {:.3f}i (e/atom)'.format(Gold.f.real, Gold.f.imag))
-```
->Formfactor: f = 73.419 + 5.421i (e/atom)
-
-and attenuation coefficient.
-```python
 print('Attenuation coefficient: mu = {:.3f} (1/cm)'.format(Gold.mu.value))
 ```
->Attenuation coefficient: mu = 2218.580 (1/cm)
+> Refractive index: δ + βi = 2.987e-05 + 2.205e-06i  
+> Formfactor: f = 73.419 + 5.421i (e/atom)  
+> Attenuation coefficient: mu = 2218.580 (1/cm)
+
+
+
 
 Plot the q-dependent Form factor:
 ```python
@@ -71,16 +76,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 from pydabax.elements import Compound
 
+#q-space
+q = np.linspace(0, 35, 101)
+#Create Compounds
 Gold = Compound("Au", energy="8.047 keV", density="19.3 g/cm^3")
 Water = Compound("H2O", energy="8047 eV", density="997 kg/m^3")
-q = np.linspace(0, 35, 101)
-
+#Set q of compounds
 Water.q = q
 Gold.q = q
+#Prepare plot
 fig, ax = plt.subplots(figsize=[3.375, 3])
 ax.set_xlabel("q (1/Å)")
 ax.set_ylabel("f1 (e/atom)")
-
+#Obtain f from compounds and plot
 ax.plot(Water.q, Water.f.real, label="H2O at 8.047 keV")
 ax.plot(Gold.q, Gold.f.real, label="Gold at 8.047 keV")
 _ = ax.legend(prop={"size": 8})
@@ -88,13 +96,31 @@ _ = ax.legend(prop={"size": 8})
 
 <img src="./blob/formfactor.jpg" alt="formfactor" width="450"/>
 
+Units
+_____
+As the different flavors of x-ray analysis prefers different units, pyDABAX uses astropy to handle physical quantities
+consisting of a value and a unit. Hence, unit handling should be flexible and coherent within the package.
+First, set the preferred global units. Standard units are keV, Å, 1/Å, and °.
+All inputs without explicitly specified unit and all outputs will have this unit.
+
+```python
+#Photon energy
+UnitSettings.UNIT_E = 'eV'
+#Momentum transfer
+UnitSettings.UNIT_Q = '1/nm'
+#Wavelength
+UnitSettings.UNIT_R = 'nm'
+#Total scattering angles
+UnitSettings.UNIT_TTH = 'rad'
+```
+
 Accessing the X-ray database dabax
 ---------------------------------
 
 Show all available entries for oxygen.
 ```python
 from pydabax.dabax import dabax as dbx
-dbx.get_keys("O")
+dbx.get_keys("C")
 ```
 >['atomic_number',
  'symbol',
@@ -122,7 +148,7 @@ dbx.get_keys("O")
 Get the CXRO Henke table for f1 and f2.
 ```python
 from pydabax.dabax import dabax as dbx
-dbx.get_table("O", "cxro_f1f2_henke")
+dbx.get_table("C", "cxro_f1f2_henke")
 ```
 
 

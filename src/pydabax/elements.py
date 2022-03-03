@@ -56,11 +56,6 @@ class UnitSettings:
 
 
 class BaseElement:
-    SHOW_UNIT = True
-    UNIT_Q = "Å^-1"
-    UNIT_E = "keV"
-    UNIT_TTH = "°"
-    UNIT_R = "Å"
 
     def __init__(self, q="0 1/Å", photon_energy="8.047 keV"):
         self._q = None
@@ -169,25 +164,25 @@ class BaseElement:
 
     @staticmethod
     def calc_q(energy, ttheta):
-        energy = Quantity(energy, BaseElement.UNIT_E)
-        wavelength = Quantity(hc / energy, BaseElement.UNIT_R)
-        ttheta = Quantity(ttheta, BaseElement.UNIT_TTH)
+        energy = Quantity(energy, UnitSettings.UNIT_E)
+        wavelength = Quantity(hc / energy, UnitSettings.UNIT_R)
+        ttheta = Quantity(ttheta, UnitSettings.UNIT_TTH)
         q = 4 * np.pi / wavelength * np.sin(ttheta / 2)
         return q
 
     @staticmethod
     def calc_ttheta(energy, q):
-        energy = Quantity(energy, BaseElement.UNIT_E)
-        wavelength = Quantity(hc / energy, BaseElement.UNIT_R)
-        q = Quantity(q, BaseElement.UNIT_Q)
-        wavelength = Quantity(wavelength, BaseElement.UNIT_R)
+        energy = Quantity(energy, UnitSettings.UNIT_E)
+        wavelength = Quantity(hc / energy, UnitSettings.UNIT_R)
+        q = Quantity(q, UnitSettings.UNIT_Q)
+        wavelength = Quantity(wavelength, UnitSettings.UNIT_R)
         res = 2 * np.arcsin(q * wavelength / (4 * np.pi))
-        return Quantity(res, BaseElement.UNIT_TTH)
+        return Quantity(res, UnitSettings.UNIT_TTH)
 
     @staticmethod
     def crossec_compton_kleinnishina(energy, ttheta):
-        energy = Quantity(energy, BaseElement.UNIT_E)
-        ttheta = Quantity(ttheta, BaseElement.UNIT_TTH)
+        energy = Quantity(energy, UnitSettings.UNIT_E)
+        ttheta = Quantity(ttheta, UnitSettings.UNIT_TTH)
         d = 1 + (energy / (c.m_e * c.c ** 2)) * (
                 1 - np.cos(ttheta))
         p = 1 / d  # P Klein-Nishina Equation
@@ -196,13 +191,15 @@ class BaseElement:
 
     @property
     @show_unit
+    @enforce_unit((lambda: UnitSettings.UNIT_R))
     def wavelength(self):
-        ans = Quantity(hc / self._energy, BaseElement.UNIT_R)
+        ans = hc / self._energy
         return ans  # if Element.SHOW_UNIT else ans.value
 
     @wavelength.setter
+    @enforce_unit((lambda: UnitSettings.UNIT_R))
     def wavelength(self, value):
-        self._energy = Quantity(hc / value, BaseElement.UNIT_E)
+        self._energy = Quantity(hc / value, UnitSettings.UNIT_E)
 
 
 class Element(BaseElement):
@@ -276,14 +273,14 @@ class Element(BaseElement):
     @show_unit
     def k_alpha_2(self):
         val = Quantity(float(self.edges.loc["K"] - self.edges.loc["L II"]), 'keV')
-        val = Quantity(val, BaseElement.UNIT_E)
+        val = Quantity(val, UnitSettings.UNIT_E)
         return val
 
     @property
     @show_unit
     def k_alpha_1(self):
         val = Quantity(float(self.edges.loc["K"] - self.edges.loc["L III"]), 'keV')
-        val = Quantity(val, BaseElement.UNIT_E)
+        val = Quantity(val, UnitSettings.UNIT_E)
         return val
 
     @property
@@ -294,7 +291,7 @@ class Element(BaseElement):
     @show_unit
     def k_beta(self):
         val = Quantity(float(self.edges.loc["K"] - self.edges.loc["M II"]), "keV")
-        val = Quantity(val, BaseElement.UNIT_E)
+        val = Quantity(val, UnitSettings.UNIT_E)
         return val
 
     @property
@@ -303,7 +300,7 @@ class Element(BaseElement):
         return val
 
     @property
-    def neturon_bcoh(self):
+    def neutron_bcoh(self):
         coh, inc, ab = self._get_nist_b_sears()
         return coh
 
@@ -481,8 +478,8 @@ class Element(BaseElement):
             return self._get_nist_f1f2_chantler(energy)
 
     def get_f(self, energy, q, **params):
-        q = Quantity(q, BaseElement.UNIT_Q)
-        energy = Quantity(energy, BaseElement.UNIT_E)
+        q = Quantity(q, UnitSettings.UNIT_Q)
+        energy = Quantity(energy, UnitSettings.UNIT_E)
 
         q = Quantity(q, "1/Å").value  # Ensure parameters are in right unit for table
         energy = Quantity(energy, "keV").value
@@ -493,6 +490,9 @@ class Element(BaseElement):
 
     def _get_nist_edges_chantler(self):
         df = dabax.get_table(self.symbol, "nist_edges_chantler")
+
+        df['E (keV)'] = Quantity(df['E (keV)'].values, 'keV').to(UnitSettings.UNIT_E).value
+        df.columns = ['E ({:s})'.format(UnitSettings.UNIT_E)]
         return df
 
 
