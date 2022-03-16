@@ -31,24 +31,41 @@ def show_unit(function):
     return wrapper
 
 
-def enforce_unit(unit):
+def enforce_unit_iter(unit):
     def decorator(function):
         def wrapper(*args, **kwargs):
-            if len(args) == 2:
+            if len(args) > 1:
                 args = list(args)
-                args[1] = Quantity(args[1], unit())
+                args[1] = unit_iter_parser(args[1], unit())
 
             result = function(*args, **kwargs)
             if result is not None:
-                return Quantity(result, unit())
+                return Quantity(result, unit()).squeeze() if UnitSettings.SQUEEZE else Quantity(result, unit())
 
         return wrapper
 
     return decorator
 
 
+def unit_iter_parser(inp, unit):
+    try:
+        res = Quantity(inp, unit)
+    except:
+        res = []
+        for r in inp:
+            res.append(Quantity(r, unit))
+        res = Quantity(res, unit)
+
+    try:
+        iter(res)
+    except:
+        res = Quantity([res], unit)
+    return res.flatten()
+
+
 class UnitSettings:
     SHOW_UNIT = True
+    SQUEEZE = True
     UNIT_Q = "Å^-1"
     UNIT_E = "keV"
     UNIT_TTH = "°"
@@ -67,37 +84,37 @@ class BaseElement:
 
     @property
     @show_unit
-    @enforce_unit((lambda: UnitSettings.UNIT_Q))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_Q))
     def q(self):
         ans = self._q
         return ans
 
     @q.setter
-    @enforce_unit((lambda: UnitSettings.UNIT_Q))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_Q))
     def q(self, value):
         self._q = value
 
     @property
     @show_unit
-    @enforce_unit((lambda: UnitSettings.UNIT_TTH))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_TTH))
     def ttheta(self):
         ans = Element.calc_ttheta(self.energy, self.q)
         return ans
 
     @ttheta.setter
-    @enforce_unit((lambda: UnitSettings.UNIT_TTH))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_TTH))
     def ttheta(self, value):
         self._q = Element.calc_q(self.energy, value)
 
     @property
     @show_unit
-    @enforce_unit((lambda: UnitSettings.UNIT_E))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_E))
     def energy(self):
         ans = self._energy
         return ans
 
     @energy.setter
-    @enforce_unit((lambda: UnitSettings.UNIT_E))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_E))
     def energy(self, value):
         self._energy = value
 
@@ -176,7 +193,14 @@ class BaseElement:
         wavelength = Quantity(hc / energy, UnitSettings.UNIT_R)
         q = Quantity(q, UnitSettings.UNIT_Q)
         wavelength = Quantity(wavelength, UnitSettings.UNIT_R)
-        res = 2 * np.arcsin(q * wavelength / (4 * np.pi))
+        try:
+            x = np.tile(q, (len(wavelength), 1))
+            y = np.tile(wavelength, (len(q), 1)).T
+        except TypeError:
+            x = q
+            y = wavelength
+
+        res = 2 * np.arcsin(x * y / (4 * np.pi))
         return Quantity(res, UnitSettings.UNIT_TTH)
 
     @staticmethod
@@ -191,13 +215,13 @@ class BaseElement:
 
     @property
     @show_unit
-    @enforce_unit((lambda: UnitSettings.UNIT_R))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
     def wavelength(self):
         ans = hc / self._energy
         return ans  # if Element.SHOW_UNIT else ans.value
 
     @wavelength.setter
-    @enforce_unit((lambda: UnitSettings.UNIT_R))
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
     def wavelength(self, value):
         self._energy = Quantity(hc / value, UnitSettings.UNIT_E)
 
@@ -242,28 +266,35 @@ class Element(BaseElement):
 
     @property
     @show_unit
-    def molecular_weight(self):
+    def matomic_weight(self):
         ans = Quantity(
-            dabax.get_entry(self.symbol, "atomic_weight"), u.gram / u.mol
+            dabax.get_entry(self.symbol, "atomic_weight"), u.misc.u
         )
         return ans
 
     @property
-    def atomic_weight(self):
-        return self.molecular_weight
+    def molecular_weight(self):
+        return self.atomic_weight
+
+
+    @property
+    @show_unit
+    def molar_mass(self):
+        return (self.atomic_weight * c.N_A).to('g/mol')
+
 
     @property
     def f(self):
-        ans = self.get_f(self.energy, self.q)
+        ans = self.get_f(self._energy, self._q)
         return ans
 
     @property
     def crossec_compton(self):
-        return self.get_compton(self.energy, self.q)
+        return self.get_compton(self._energy, self._q)
 
     @property
     def crossec_thomson(self):
-        return self.get_thomson(self.energy, self.q)
+        return self.get_thomson(self._energy, self._q)
 
     @property
     def edges(self):
@@ -316,7 +347,7 @@ class Element(BaseElement):
 
     @property
     def mup(self):
-        return self.get_mup(self.energy)
+        return self.get_mup(self._energy)
 
     def get_mup(self, energy):
         return self._get_nist_mup_chantler(energy)
@@ -341,49 +372,46 @@ class Element(BaseElement):
 
     def get_compton(self, energy, q):
         q = Quantity(q, "1/Å")
-        energy = Quantity(energy, "keV")
+        _ = Quantity(energy, "keV")
+        res1 = []
+        res2 = []
+        for energy in _:
+            ttheta = Element.calc_ttheta(energy, q)
 
-        ttheta = Element.calc_ttheta(energy, q)
-
-        crossec, energy_out = Element.crossec_compton_kleinnishina(energy, ttheta)
-        isf = self.get_isf(q)
-
-        return crossec * (self.atomic_number - isf), energy_out
+            crossec, energy_out = Element.crossec_compton_kleinnishina(energy, ttheta)
+            isf = self.get_isf(q)
+            res1.append(crossec * (self.atomic_number - isf))
+            res2.append(energy_out)
+        return np.array(res1), Quantity(res2)
 
     def get_thomson(self, energy, q):
         q = Quantity(q, "1/Å")
         energy = Quantity(energy, "keV")
-
         ttheta = Element.calc_ttheta(energy, q)
 
-        ans = 0.5 * (1 + np.cos(ttheta) ** 2) * abs(self.get_f(energy, q)) ** 2
+        res = ( 0.5 * (1 + np.cos(ttheta) ** 2) * abs(self.get_f(energy, q)) ** 2 )
 
-        return ans
+        return res
 
     def _get_nist_f1f2_chantler(self, energy):
 
         df = dabax.get_table(self.symbol, "nist_f1f2_chantler")
 
-        out = Element.interpolate_chantler(energy, df)
+        rel_corr = float(dabax.get_entry(
+            self.symbol,
+            ["nist_f1f2_chantler", "relativistic_correction"],
+        )[1])
 
-        out.append(
-            dabax.get_entry(
-                self.symbol,
-                ["nist_f1f2_chantler", "relativistic_correction"],
-            )
-        )
-        out.append(
-            dabax.get_entry(
-                self.symbol,
-                ["nist_f1f2_chantler", "thomson_correction"],
-            )
-        )
+        nt_corr = float(dabax.get_entry(
+            self.symbol,
+            ["nist_f1f2_chantler", "thomson_correction"]))
 
-        f1 = out[0]
-        f2 = out[1]
-        rel_corr = float(out[2][1])  # 3/5CL
-        nt_corr = float(out[3])
-        return [f1 + rel_corr + nt_corr, f2]
+        res = []
+        for e in energy:
+            f1, f2 = Element.interpolate_chantler(e, df)
+            res.append(f1 + rel_corr + nt_corr + 1j * f2)
+
+        return res
 
     def _get_nist_f1f2mu_chantler(self, energy):
         """
@@ -437,31 +465,35 @@ class Element(BaseElement):
         """
         dabax: f1f2_Henke
         """
-        energy *= 1e3
-        df = dabax.get_table(self.symbol, "cxro_f1f2_henke")
-        e = df["E (eV)"].values
-        f1 = df["f1"].values
-        f2 = df["f2"].values
-        idx = argmax(e >= energy)
-        p1 = poly1d(
-            polyfit(
-                e[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
-                f1[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
-                degree,
+        _energy = energy
+        res = []
+        for energy in _energy:
+            energy *= 1e3
+            df = dabax.get_table(self.symbol, "cxro_f1f2_henke")
+            e = df["E (eV)"].values
+            f1 = df["f1"].values
+            f2 = df["f2"].values
+            idx = argmax(e >= energy)
+            p1 = poly1d(
+                polyfit(
+                    e[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
+                    f1[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
+                    degree,
+                )
             )
-        )
-        p2 = poly1d(
-            polyfit(
-                e[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
-                f2[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
-                degree,
+            p2 = poly1d(
+                polyfit(
+                    e[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
+                    f2[idx - interpolation_delta_idx: idx + interpolation_delta_idx],
+                    degree,
+                )
             )
-        )
-        return p1(energy), p2(energy)
+            res.append(p1(energy) + 1j * p2(energy))
+        return res
 
     def _get_nist_b_sears(self):
         df = dabax.get_table(self.symbol, "nist_b_sears")
-        unit = u.barn if Element.SHOW_UNIT else 1
+        unit = u.barn if UnitSettings.SHOW_UNIT else 1
         return (
             float(df["Coh xs (barn)"]) * unit,
             float(df["Inc xs (barn)"]) * unit,
@@ -470,7 +502,7 @@ class Element(BaseElement):
 
     def _get_f1f2(self, energy, databank="auto"):
         if databank == "auto":
-            databank = "cxro" if energy <= 30 else "nist"
+            databank = "cxro" if energy.max() <= 30 else "nist"
 
         if databank in ["CXRO", "cxro", "henke", "Henke"]:
             return self._get_cxro_f1f2_henke(energy)
@@ -484,9 +516,14 @@ class Element(BaseElement):
         q = Quantity(q, "1/Å").value  # Ensure parameters are in right unit for table
         energy = Quantity(energy, "keV").value
 
-        f1, f2 = self._get_f1f2(energy, **params)
+        f = self._get_f1f2(energy, **params)
         f0 = self._get_dabax_f0_waaskirf(q)
-        return f0 + f1 - self.atomic_number + f2 * 1j
+
+        x = np.tile(f, (len(f0), 1)).T
+        y = np.tile(f0, (len(f), 1))
+
+        res = x + y - self.atomic_number
+        return np.squeeze(res) if UnitSettings.SQUEEZE else res
 
     def _get_nist_edges_chantler(self):
         df = dabax.get_table(self.symbol, "nist_edges_chantler")
@@ -620,12 +657,12 @@ class Compound(BaseElement):
 
     @property
     def q_crit(self):
-        return abs(self.q_crit_sq**0.5)
+        return abs(self.q_crit_sq ** 0.5)
 
     @property
     def deltabeta(self):
 
-        db = self.wavelength**2/(2*np.pi)*r_e/self.molecular_volume*self.f
+        db = self.wavelength ** 2 / (2 * np.pi) * r_e / self.molecular_volume * self.f
         return db
 
     @property
