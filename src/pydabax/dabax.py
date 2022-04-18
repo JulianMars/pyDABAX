@@ -33,6 +33,9 @@ class Dabax:
         # noinspection PyTypeChecker
         return self.db.search(entry.symbol == symbol)[0]
 
+
+
+
     def get_entry(self, symbol, keys):
         res = self.read_db(symbol)
         if not isinstance(keys, list):
@@ -58,6 +61,12 @@ class Dabax:
         df = DataFrame.from_dict(res[table_name]["table"])
         return df
 
+    def get(self, symbol, keys):
+        try:
+            ans = self.get_table(symbol, keys)
+        except TypeError:
+            ans = self.get_entry(symbol, keys)
+        return ans
 
 print("Loading database from " + str(latest_json))
 dabax = Dabax(latest_json)

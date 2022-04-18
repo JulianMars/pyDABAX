@@ -1,6 +1,8 @@
 import sys
-from pydabax import dabax
-from pydabax import elements
+from pydabax.dabax import *
+from pydabax.elements import *
+get_dabax = dabax.get
+get_keys = dabax.get_keys
 
 if sys.version_info[:2] >= (3, 8):
     # TODO: Import directly (no need for conditional) when `python_requires = >= 3.8`
