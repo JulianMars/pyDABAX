@@ -22,6 +22,9 @@ __pycache__/*
 .idea
 tags
 
+#too large
+xraydb.latest.json
+
 # Package files
 *.egg
 *.eggs/
