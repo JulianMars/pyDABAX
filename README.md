@@ -135,7 +135,7 @@ UnitSettings.UNIT_TTH = 'rad'
 Accessing the X-ray database dabax
 ---------------------------------
 
-Show all available entries for oxygen.
+Show all available entries for carbon.
 ```python
 import pydabax as dbx
 dbx.get_keys("C")
