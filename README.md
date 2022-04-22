@@ -54,7 +54,7 @@ _____
 
 Create compound from string with fixed energy.
 ```python
-from pydabax import Compound
+from pydabax import *
 Gold = Compound('Au', energy='10 keV', density='element')
 ```
 
@@ -70,8 +70,8 @@ print('Attenuation coefficient: mu = {:.3f}'.format(Gold.mu))
 
 In jupyter notebooks Compounds and Elements have a html representation with useful parameters:
 ```python
-from pydabax import Elements
-Elements['12C']
+from pydabax import *
+Elements['O']
 ```
 <h1>Oxygen</h1><table> <tr> <th>Symbol</th> <td>O</td> </tr><tr> <th>Atomic number</th> <td>8</td> </tr><tr> <th>Atomic mass</th> <td>15.9994 u</td> </tr><tr> <th>Charge</th> <td>0</td> </tr><tr> <th>Atomic radius</th> <td>0.65 Angstrom</td> </tr><tr> <th>Covalent radius</th> <td>0.73 Angstrom</td> </tr><tr> <th>Melting point</th> <td>50.35 K</td> </tr><tr> <th>Boiling point</th> <td>90.18 K</td> </tr><tr> <th>Energy</th> <td>8.047 keV</td> </tr><tr> <th>q</th> <td>0.0 1 / Angstrom</td> </tr><tr> <th>X-ray formfactor</th> <td>8.052 electron</td> </tr><tr> <th>K<sub>α1</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>α2</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>β</sub></th> <td>-</td> </tr><tr> <th>b<sub>coh</sub></th> <td>(5.803+0j) fm</td> </tr><tr> <th>b<sub>inc</sub></th> <td>-</td> </tr><tr> <th>σ<sub>coh</sub></th> <td>4.232 barn</td> </tr><tr> <th>σ<sub>inc</sub></th> <td>0.0008 barn</td> </tr><tr> <th>absorption (2200m/s)</th> <td>0.0002 barn</td> </tr></table>
 
@@ -110,7 +110,7 @@ _____
 pydabax supports all common isotopes and ions.
 
 ```python
-Compound('2HO2', density="mcgowan") 
+Compound('2H2O', density="mcgowan") 
 Compound('OH-', density="mcgowan") 
 ```
 
@@ -137,8 +137,8 @@ Accessing the X-ray database dabax
 
 Show all available entries for oxygen.
 ```python
-from pydabax import get_keys, get_dabax
-get_keys("C")
+import pydabax as dbx
+dbx.get_keys("C")
 ```
 >['atomic_number',
  'symbol',
@@ -212,7 +212,6 @@ get_keys("C")
 
 Get the CXRO Henke table for f1 and f2.
 ```python
-from pydabax.dabax import dabax as dbx
 dbx.get_table("C", "cxro_f1f2_henke")
 ```
 
