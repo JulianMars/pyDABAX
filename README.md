@@ -19,9 +19,11 @@ pip install pyDABAX
 
 The following dependencies will be installed by pip:
 
--  `numpy <https://www.numpy.org/>`
--  `TinyDB <https://github.com/msiemens/tinydb>`
--  `astropy <https://github.com/astropy/astropy>`
+- `numpy <https://www.numpy.org/>`
+- `TinyDB <https://github.com/msiemens/tinydb>`
+- `astropy <https://github.com/astropy/astropy>`
+- `pandas`
+- `regex`
 
 Manual installation
 ----------------------
@@ -32,7 +34,6 @@ Clone the current git repository:
 git clone https://github.com/JulianMars/pyDABAX.git
 ```
 
-We recommend using environments. Create and activate the environment.
 You can install pyDABAX from inside the git folder to your current environment using:
 
 ```bash
@@ -53,48 +54,65 @@ _____
 
 Create compound from string with fixed energy.
 ```python
-from pydabax.elements import Compound
-Gold = Compound('Au', energy='10 keV', density='19.3 g/cm^3')
+from pydabax import Compound
+Gold = Compound('Au', energy='10 keV', density='element')
 ```
 
 Obtain refractive index, x-ray form factor, and attenuation coefficient.
 ```python
-print('Refractive index: δ + βi = {:.3e} + {:.3e}i'.format(Gold.deltabeta.real, Gold.deltabeta.imag))
-print('Formfactor: f = {:.3f} + {:.3f}i (e/atom)'.format(Gold.f.real, Gold.f.imag))
-print('Attenuation coefficient: mu = {:.3f} (1/cm)'.format(Gold.mu.value))
+print('Refractive index: δ + βj = {:.2e}'.format(Gold.deltabeta))
+print('Formfactor: f = {:.1f}'.format(Gold.f))
+print('Attenuation coefficient: mu = {:.3f}'.format(Gold.mu))
 ```
-> Refractive index: δ + βi = 2.987e-05 + 2.205e-06i  
-> Formfactor: f = 73.419 + 5.421i (e/atom)  
-> Attenuation coefficient: mu = 2218.580 (1/cm)
+> Refractive index: δ + βj = 2.99e-05+2.21e-06j
+> Formfactor: f = 73.4+5.4j
+> Attenuation coefficient: mu = 2218.580 1 / cm
 
+In jupyter notebooks Compounds and Elements have a html representation with useful parameters:
+```python
+from pydabax import Elements
+Elements['12C']
+```
+<h1>Oxygen</h1><table> <tr> <th>Symbol</th> <td>O</td> </tr><tr> <th>Atomic number</th> <td>8</td> </tr><tr> <th>Atomic mass</th> <td>15.9994 u</td> </tr><tr> <th>Charge</th> <td>0</td> </tr><tr> <th>Atomic radius</th> <td>0.65 Angstrom</td> </tr><tr> <th>Covalent radius</th> <td>0.73 Angstrom</td> </tr><tr> <th>Melting point</th> <td>50.35 K</td> </tr><tr> <th>Boiling point</th> <td>90.18 K</td> </tr><tr> <th>Energy</th> <td>8.047 keV</td> </tr><tr> <th>q</th> <td>0.0 1 / Angstrom</td> </tr><tr> <th>X-ray formfactor</th> <td>8.052 electron</td> </tr><tr> <th>K<sub>α1</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>α2</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>β</sub></th> <td>-</td> </tr><tr> <th>b<sub>coh</sub></th> <td>(5.803+0j) fm</td> </tr><tr> <th>b<sub>inc</sub></th> <td>-</td> </tr><tr> <th>σ<sub>coh</sub></th> <td>4.232 barn</td> </tr><tr> <th>σ<sub>inc</sub></th> <td>0.0008 barn</td> </tr><tr> <th>absorption (2200m/s)</th> <td>0.0002 barn</td> </tr></table>
 
-
-
-Plot the q-dependent Form factor:
+_____  
+Plot the q-dependent Form factor density:
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
-from pydabax.elements import Compound
+from pydabax import Compound
 
 #q-space
 q = np.linspace(0, 35, 101)
 #Create Compounds
-Gold = Compound("Au", energy="8.047 keV", density="19.3 g/cm^3")
+Gold = Compound("Au", energy="8.047 keV", density="element")
 Water = Compound("H2O", energy="8047 eV", density="997 kg/m^3")
+Il = Compound('(CH6N)0.4(C8H15N2)0.6(CF3SO2)2N', density="mcgowan") 
 #Set q of compounds
 Water.q = q
 Gold.q = q
+Il.q = q
 #Prepare plot
 fig, ax = plt.subplots(figsize=[3.375, 3])
 ax.set_xlabel("q (1/Å)")
-ax.set_ylabel("f1 (e/atom)")
+ax.set_ylabel("f1 / V (e/Å)")
 #Obtain f from compounds and plot
-ax.plot(Water.q, Water.f.real, label="H2O at 8.047 keV")
-ax.plot(Gold.q, Gold.f.real, label="Gold at 8.047 keV")
+ax.plot(Water.q, Water.f.real/Water.molecular_volume, label="H2O at 8.047 keV")
+ax.plot(Gold.q, Gold.f.real/Gold.molecular_volume, label="Gold at 8.047 keV")
+ax.plot(Il.q, Il.f.real/Il.molecular_volume, label="Ionic Liquid at 8.047 keV")
 _ = ax.legend(prop={"size": 8})
 ```
 
 <img src="./blob/formfactor.jpg" alt="formfactor" width="450"/>
+
+Ions and Isotopes
+_____
+pydabax supports all common isotopes and ions.
+
+```python
+Compound('2HO2', density="mcgowan") 
+Compound('OH-', density="mcgowan") 
+```
 
 Units
 _____
@@ -119,31 +137,78 @@ Accessing the X-ray database dabax
 
 Show all available entries for oxygen.
 ```python
-from pydabax.dabax import dabax as dbx
-dbx.get_keys("C")
+from pydabax import get_keys, get_dabax
+get_keys("C")
 ```
 >['atomic_number',
  'symbol',
+ 'element_symbol',
  'name',
  'charge',
+ 'mass_number',
+ 'mcgowan_volume',
  'atomic_weight',
  'nist_f1f2_chantler',
  'nist_edges_chantler',
  'cxro_f1f2_henke',
  'nist_b_sears',
- 'dabax_atomic_densities',
- 'dabax_atomic_constants',
- 'dabax_crosssec_mcmaster',
- 'dabax_crosssec_compton_mcmaster',
- 'dabax_ebind_1',
- 'dabax_crosssec_brennancowan',
- 'dabax_crosssec_xcom',
- 'dabax_f1f1_brennancowan_long',
- 'dabax_f1f1_brennancowan',
- 'dabax_f0_waaskirf',
- 'dabax_isf_balyuzi',
- 'dabax_f1f2_chantler',
- 'dabax_f1f2_henke']
+ 'dabax_AtomicConstants',
+ 'dabax_ComptonProfiles',
+ 'dabax_CrossSec_BrennanCowan',
+ 'dabax_CrossSec_Compton_IntegrHubbell',
+ 'dabax_CrossSec_Compton_IntegrXop',
+ 'dabax_CrossSec_Compton_KleinNishina',
+ 'dabax_CrossSec_EPDL97',
+ 'dabax_CrossSec_McMaster',
+ 'dabax_CrossSec_NISTxaamdi',
+ 'dabax_CrossSec_PE_Scofield',
+ 'dabax_CrossSec_StormIsrael',
+ 'dabax_CrossSec_XCOM',
+ 'dabax_CrossSec-Compton_McMaster',
+ 'dabax_CrossSec-Rayleigh_McMaster',
+ 'dabax_EBindEner',
+ 'dabax_EBindEner2',
+ 'dabax_Econfiguration',
+ 'dabax_f0_CromerMann_old1968',
+ 'dabax_f0_CromerMann',
+ 'dabax_f0_EPDL97',
+ 'dabax_f0_InterTables',
+ 'dabax_f0_mf_Kissel',
+ 'dabax_f0_rf_Kissel',
+ 'dabax_f0_WaasKirf',
+ 'dabax_f0_xop',
+ 'dabax_f1f2_asf_Kissel',
+ 'dabax_f1f2_BrennanCowan',
+ 'dabax_f1f2_BrennanCowanLong',
+ 'dabax_f1f2_Chantler',
+ 'dabax_f1f2_CromerLiberman',
+ 'dabax_f1f2_EPDL97',
+ 'dabax_f1f2_Henke',
+ 'dabax_f1f2_Sasaki',
+ 'dabax_f1f2_Windt',
+ 'dabax_FluorYield_Elam',
+ 'dabax_FluorYield_Krause',
+ 'dabax_FluorYield_xraylib',
+ 'dabax_isf_Balyuzi',
+ 'dabax_isf_Hubbell',
+ 'dabax_isf_xop_biggs_brusa_fermi',
+ 'dabax_isf_xop_biggs_full_fermi',
+ 'dabax_isf_xop_biggs_full',
+ 'dabax_isf_xop_biggs_linap_fermi',
+ 'dabax_isf_xop_biggs_linap',
+ 'dabax_JumpRatio_Elam',
+ 'dabax_Neutron_SLCS_DataBooklet',
+ 'dabax_Neutron_SLCS_NeutronNews',
+ 'dabax_RadiativeRates_KrauseScofield',
+ 'dabax_RadiativeRates_L_Scofield',
+ 'dabax_XAFS_McKale_K-edge_R=2.5_A',
+ 'dabax_XAFS_McKale_K-edge_R=4.0_A',
+ 'dabax_XAFS_McKale_L-edge_R=2.5_A',
+ 'dabax_XAFS_McKale_L-edge_R=4.0_A',
+ 'dabax_XREmission_NIST',
+ 'dabax_XREmission',
+ 'dabax_XREmissionWeights',
+ 'mcgowan_vol']
 
 Get the CXRO Henke table for f1 and f2.
 ```python

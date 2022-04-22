@@ -41,7 +41,21 @@ def enforce_unit_iter(unit):
 
             result = function(*args, **kwargs)
             if result is not None:
-                return Quantity(result, unit()).squeeze() if UnitSettings.SQUEEZE else Quantity(result, unit())
+                ans = Quantity(result, unit()).squeeze() if UnitSettings.SQUEEZE else Quantity(result, unit())
+                return ans
+
+        return wrapper
+
+    return decorator
+
+
+def squeezer():
+    def decorator(function):
+        def wrapper(*args, **kwargs):
+            result = function(*args, **kwargs)
+            if result is not None:
+                ans = np.squeeze(result) if UnitSettings.SQUEEZE else result
+                return ans.item() if np.ndim(ans) == 0 else ans
 
         return wrapper
 
@@ -122,6 +136,18 @@ class BaseElement:
     @enforce_unit_iter((lambda: UnitSettings.UNIT_E))
     def energy(self, value):
         self._energy = value
+
+    @property
+    @show_unit
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
+    def wavelength(self):
+        ans = hc / self._energy
+        return ans  # if Element.SHOW_UNIT else ans.value
+
+    @wavelength.setter
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
+    def wavelength(self, value):
+        self._energy = Quantity(hc / value, UnitSettings.UNIT_E)
 
     @staticmethod
     def calc_dabax(q, df, d=5):
@@ -221,18 +247,6 @@ class BaseElement:
         diff_crossec = 1 / 2 * p ** 2 * (p + 1 / p - np.sin(ttheta) ** 2)
         return diff_crossec, energy * p
 
-    @property
-    @show_unit
-    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
-    def wavelength(self):
-        ans = hc / self._energy
-        return ans  # if Element.SHOW_UNIT else ans.value
-
-    @wavelength.setter
-    @enforce_unit_iter((lambda: UnitSettings.UNIT_R))
-    def wavelength(self, value):
-        self._energy = Quantity(hc / value, UnitSettings.UNIT_E)
-
 
 class Element(BaseElement):
     def __init__(self, symbol, q="0/Å", energy="8.047 keV"):
@@ -241,7 +255,8 @@ class Element(BaseElement):
         self.element_symbol = dabax.get_entry(self.symbol, "element_symbol")
 
     def __repr__(self):
-        return str(self.symbol) + '\n' + "Atomic weight: %s"%self.atomic_weight + '\n' + "X-ray formfactor: %f"%self.f.flat[0].real
+        return str(self.symbol) + '\n' + "Atomic mass: %s" % self.atomic_mass + '\n' + "X-ray formfactor: %f" % \
+               self.get_f(self._energy[:1], self._q[:1]).flat[0].real
 
     def _repr_html_(self):
 
@@ -252,7 +267,7 @@ class Element(BaseElement):
 
         keys = [["Symbol", self.symbol],
                 ["Atomic number", self.atomic_number],
-                ["Atomic mass", self.atomic_weight],
+                ["Atomic mass", self.atomic_mass],
                 ["Charge", self.charge],
                 ["Atomic radius", self.atomic_radius],
                 ["Covalent radius", self.covalent_radius],
@@ -261,7 +276,8 @@ class Element(BaseElement):
 
                 ["Energy", self._energy[0]],
                 ["q", self._q[0]],
-                ["X-ray formfactor", '-' if self.f.flat[0] == '-' else self.f.flat[0].real * u.electron],
+                ["X-ray formfactor",
+                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -332,20 +348,6 @@ class Element(BaseElement):
             ans = db()
         return ans if ans else '-'
 
-    def _density_atomic_constants(self):
-        try:
-            val = self.atomic_constants['values'].loc['Density (g/ccm)']
-        except KeyError:
-            return None
-        return Quantity(val, 'g/cm^3')
-
-    def _density_neutron_booklet(self):
-        try:
-            val = self.neutron_booklet['SCLC Data Booklet'].loc['Density (g/cm3)']
-        except KeyError:
-            return None
-        return Quantity(val, 'g/cm^3')
-
     @property
     @show_unit
     def debeye_temperature(self):
@@ -392,9 +394,9 @@ class Element(BaseElement):
         return ans
 
     @property
-    def atomic_weight(self, database='auto'):
-        dbs = {'neutron_booklet': self._atomic_weight_neutron_booklet, 'dabax': self._atomic_weight_dabax,
-               'atomic_constants': self._atomic_weight_atomic_constants}
+    def atomic_mass(self, database='auto'):
+        dbs = {'neutron_booklet': self._atomic_mass_neutron_booklet, 'dabax': self._atomic_mass_dabax,
+               'atomic_constants': self._atomic_mass_atomic_constants}
         if database == 'auto':
             for k in dbs:
                 ans = dbs[k]()
@@ -405,43 +407,23 @@ class Element(BaseElement):
             ans = db()
         return ans if ans else '-'
 
-    def _atomic_weight_dabax(self):
-        try:
-            ans = dabax.get_entry(self.symbol, "atomic_weight")
-        except KeyError:
-            return None
-        return Quantity(ans, u.misc.u)
-
-    def _atomic_weight_atomic_constants(self):
-        try:
-            ans = self.atomic_constants['values'].loc['AtomicMass']
-        except KeyError:
-            return None
-        return Quantity(ans, u.misc.u)
-
-    def _atomic_weight_neutron_booklet(self):
-        try:
-            ans = self._get_dabax_SLCS_DataBooklet().loc['RelAtMass (g/mol)'][0]
-        except KeyError:
-            return None
-        return (Quantity(ans, 'g/mol') / c.N_A).to(u.misc.u)
-
     @property
-    def molecular_weight(self):
-        return self.atomic_weight
+    def molecular_mass(self):
+        return self.atomic_mass
 
     @property
     @show_unit
     def molar_mass(self):
-        return (self.atomic_weight * c.N_A).to('g/mol')
+        return (self.atomic_mass * c.N_A).to('g/mol')
 
     @property
+    @squeezer()
     def f(self):
         try:
             ans = self.get_f(self._energy, self._q)
         except(KeyError):
             ans = ['-']
-        return np.squeeze(ans) if UnitSettings.SQUEEZE else ans
+        return ans
 
     @property
     def crossec_compton(self):
@@ -583,22 +565,6 @@ class Element(BaseElement):
     def get_mup(self, energy):
         return self._get_nist_mup_chantler(energy)
 
-    def _get_nist_mup_chantler(self, energy):
-        mu = self._get_nist_f1f2mu_chantler(energy)['µ/p total (cm2/g)']
-        return Quantity(float(mu), 'cm^2/g')
-
-    def _get_dabax_f0_waaskirf(self, q):
-        df = dabax.get_table(self.symbol, "dabax_f0_WaasKirf")
-        return Element.calc_dabax(q, df)
-
-    def _get_dabax_f0_intertables(self, q):
-        df = dabax.get_table(self.symbol, "dabax_f0_InterTables")
-        return Element.calc_dabax(q, df, d=4)
-
-    def _get_dabax_isf_balyuzi(self, q):
-        df = dabax.get_table(self.element_symbol, "dabax_isf_Balyuzi")
-        return Element.calc_dabax(q, df)
-
     def get_f0(self, q):
         try:
             return self._get_dabax_f0_waaskirf(q)
@@ -630,6 +596,60 @@ class Element(BaseElement):
         res = (0.5 * (1 + np.cos(ttheta) ** 2) * abs(self.get_f(energy, q)) ** 2)
 
         return res
+
+    def get_f(self, energy, q, **params):
+        q = Quantity(q, UnitSettings.UNIT_Q)
+        energy = Quantity(energy, UnitSettings.UNIT_E)
+
+        q = Quantity(q, "1/Å").value  # Ensure parameters are in right unit for table
+        energy = Quantity(energy, "keV").value
+
+        f = self._get_f1f2(energy, **params)
+        f0 = self.get_f0(q)
+        x = np.tile(f, (len(f0), 1)).T
+        y = np.tile(f0, (len(f), 1))
+
+        res = x + y - self.atomic_number
+
+        return res
+
+    def _get_nist_mup_chantler(self, energy):
+        mu = self._get_nist_f1f2mu_chantler(energy)['µ/p total (cm2/g)']
+        return Quantity(float(mu), 'cm^2/g')
+
+    def _get_dabax_f0_waaskirf(self, q):
+        df = dabax.get_table(self.symbol, "dabax_f0_WaasKirf")
+        return Element.calc_dabax(q, df)
+
+    def _get_dabax_f0_intertables(self, q):
+        df = dabax.get_table(self.symbol, "dabax_f0_InterTables")
+        return Element.calc_dabax(q, df, d=4)
+
+    def _get_dabax_isf_balyuzi(self, q):
+        df = dabax.get_table(self.element_symbol, "dabax_isf_Balyuzi")
+        return Element.calc_dabax(q, df)
+
+    def _get_f1f2(self, energy, databank="auto"):
+        if databank == "auto":
+            databank = "cxro" if energy.max() <= 30 else "nist"
+
+        if databank in ["CXRO", "cxro", "henke", "Henke"]:
+            return self._get_cxro_f1f2_henke(energy)
+        if databank in ["NIST", "nist", "chantler", "Chantler"]:
+            return self._get_nist_f1f2_chantler(energy)
+
+    def _get_nist_edges_chantler(self):
+        # always from element
+        df = dabax.get_table(self.symbol, "nist_edges_chantler")
+
+        df['E (keV)'] = Quantity(df['E (keV)'].values, 'keV').to(UnitSettings.UNIT_E).value
+        df.columns = ['E ({:s})'.format(UnitSettings.UNIT_E)]
+        return df
+
+    def _get_dabax_atomic_constants(self):
+        df = dabax.get_table(self.symbol, 'dabax_AtomicConstants').T
+        df.columns = ['values']
+        return df
 
     def _get_nist_f1f2_chantler(self, energy):
 
@@ -741,45 +761,44 @@ class Element(BaseElement):
         df = dabax.get_table(self.symbol, "nist_b_sears")
         return df.T
 
-    def _get_f1f2(self, energy, databank="auto"):
-        if databank == "auto":
-            databank = "cxro" if energy.max() <= 30 else "nist"
+    def _density_atomic_constants(self):
+        try:
+            val = self.atomic_constants['values'].loc['Density (g/ccm)']
+        except KeyError:
+            return None
+        return Quantity(val, 'g/cm^3')
 
-        if databank in ["CXRO", "cxro", "henke", "Henke"]:
-            return self._get_cxro_f1f2_henke(energy)
-        if databank in ["NIST", "nist", "chantler", "Chantler"]:
-            return self._get_nist_f1f2_chantler(energy)
+    def _density_neutron_booklet(self):
+        try:
+            val = self.neutron_booklet['SCLC Data Booklet'].loc['Density (g/cm3)']
+        except KeyError:
+            return None
+        return Quantity(val, 'g/cm^3')
 
-    def get_f(self, energy, q, **params):
-        q = Quantity(q, UnitSettings.UNIT_Q)
-        energy = Quantity(energy, UnitSettings.UNIT_E)
+    def _atomic_mass_dabax(self):
+        try:
+            ans = dabax.get_entry(self.symbol, "atomic_weight")
+        except KeyError:
+            return None
+        return Quantity(ans, u.misc.u)
 
-        q = Quantity(q, "1/Å").value  # Ensure parameters are in right unit for table
-        energy = Quantity(energy, "keV").value
+    def _atomic_mass_atomic_constants(self):
+        try:
+            ans = self.atomic_constants['values'].loc['AtomicMass']
+        except KeyError:
+            return None
+        return Quantity(ans, u.misc.u)
 
-        f = self._get_f1f2(energy, **params)
-        f0 = self.get_f0(q)
-        x = np.tile(f, (len(f0), 1)).T
-        y = np.tile(f0, (len(f), 1))
-
-        res = x + y - self.atomic_number
-        return res
-
-    def _get_nist_edges_chantler(self):
-        # always from element
-        df = dabax.get_table(self.symbol, "nist_edges_chantler")
-
-        df['E (keV)'] = Quantity(df['E (keV)'].values, 'keV').to(UnitSettings.UNIT_E).value
-        df.columns = ['E ({:s})'.format(UnitSettings.UNIT_E)]
-        return df
-
-    def _get_dabax_atomic_constants(self):
-        df = dabax.get_table(self.symbol, 'dabax_AtomicConstants').T
-        df.columns = ['values']
-        return df
+    def _atomic_mass_neutron_booklet(self):
+        try:
+            ans = self._get_dabax_SLCS_DataBooklet().loc['RelAtMass (g/mol)'][0]
+        except KeyError:
+            return None
+        return (Quantity(ans, 'g/mol') / c.N_A).to(u.misc.u)
 
 
 class Ion(Element):
+
 
     def _repr_html_(self):
 
@@ -792,14 +811,15 @@ class Ion(Element):
                  "%s<sup>%s</sup>" % (self.element_symbol, (str(abs(self.charge)) + "-" if self.charge < 0 else str(
                      self.charge) + "+"))],
                 ["Atomic number", self.atomic_number],
-                ["Atomic mass", self.atomic_weight],
+                ["Atomic mass", self.atomic_mass],
                 ["Charge", self.charge],
                 ["Melting point", self.melting_point],
                 ["Boiling point", self.boiling_point],
                 ["Energy", self._energy[0]],
                 ["q", self._q[0]],
                 ["2θ", self._ttheta().flat[0]],
-                ["X-ray formfactor", '-' if self.f.flat[0] == '-' else self.f.flat[0].real * u.electron],
+                ["X-ray formfactor",
+                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -820,6 +840,11 @@ class Ion(Element):
                 "</table>") +
                ed)
         return ans
+
+    @property
+    def mcgowan_volume(self):
+        val = dabax.get_entry(self.element_symbol, "mcgowan_vol")
+        return Quantity(val, 'Å^3')
 
     def _get_nist_edges_chantler(self):
         # always from element
@@ -847,11 +872,6 @@ class Ion(Element):
         df.columns = ['values']
         return df
 
-    @property
-    def mcgowan_volume(self):
-        val = dabax.get_entry(self.element_symbol, "mcgowan_vol")
-        return Quantity(val, 'Å^3')
-
 
 class Isotope(Element):
 
@@ -869,7 +889,7 @@ class Isotope(Element):
 
         keys = [["Symbol", "<sup>%s</sup>%s" % (self.mass_number, self.element_symbol)],
                 ["Atomic number", self.atomic_number],
-                ["Atomic mass", self.atomic_weight],
+                ["Atomic mass", self.atomic_mass],
                 ["Charge", self.charge],
                 ["Atomic radius", self.atomic_radius],
                 ["Covalent radius", self.covalent_radius],
@@ -879,7 +899,8 @@ class Isotope(Element):
                 ["Energy", self._energy[0]],
                 ["q", self._q[0]],
                 ["2θ", self._ttheta().flat[0]],
-                ["X-ray formfactor", '-' if self.f.flat[0] == '-' else self.f.flat[0].real * u.electron],
+                ["X-ray formfactor",
+                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -902,6 +923,11 @@ class Isotope(Element):
                ed + nn)
         return ans
 
+    @property
+    def mcgowan_volume(self):
+        val = dabax.get_entry(self.element_symbol, "mcgowan_vol")
+        return Quantity(val, 'Å^3')
+
     def _get_dabax_f0_waaskirf(self, q):
         df = dabax.get_table(self.element_symbol, "dabax_f0_WaasKirf")
         return Element.calc_dabax(q, df)
@@ -912,11 +938,6 @@ class Isotope(Element):
         df['E (keV)'] = Quantity(df['E (keV)'].values, 'keV').to(UnitSettings.UNIT_E).value
         df.columns = ['E ({:s})'.format(UnitSettings.UNIT_E)]
         return df
-
-    @property
-    def mcgowan_volume(self):
-        val = dabax.get_entry(self.element_symbol, "mcgowan_vol")
-        return Quantity(val, 'Å^3')
 
 
 class ElementCounter:
@@ -955,7 +976,7 @@ class Compound(BaseElement):
             self.density = density
 
     def __repr__(self):
-        return str(self.formula) + '\n' + self.molecular_weight.__str__() + '\n' + str(self.composition)
+        return str(self.formula) + '\n' + self.molecular_mass.__str__() + '\n' + str(self.composition)
 
     # def _repr_latex_(self) -> str:
     #
@@ -999,12 +1020,16 @@ class Compound(BaseElement):
     def density(self, value):
         self._density = Quantity(value, 'g/cm^3')
 
-    @property
-    def f(self):
+    def _get_f(self):
         res = np.zeros([len(self._energy), len(self._q)], dtype=np.complex128)
         for k in self.composition:
             res += Elements[k].get_f(self._energy, self._q) * self.composition[k]
         return res
+
+    @property
+    @squeezer()
+    def f(self):
+        return self._get_f()
 
     def _guess_density_mcgowan(self):
         V = 0
@@ -1016,7 +1041,6 @@ class Compound(BaseElement):
         except KeyError:
             return u.Quantity('1 g/cm^3')
         return (m / V / c.N_A).to('g/cm^3')
-
 
     def _guess_density_element(self):
         V = 0
@@ -1069,34 +1093,36 @@ class Compound(BaseElement):
     def get_mup(self, energy):
         res = 0
         for k in self.composition:
-            res += Elements[k].get_mup(energy) * Elements[k].atomic_weight * self.composition[k]
-        return res / self.molecular_weight
+            res += Elements[k].get_mup(energy) * Elements[k].atomic_mass * self.composition[k]
+        return res / self.molecular_mass
 
     @property
     def mup(self):
         return self.get_mup(self.energy)
 
     @property
-    def molecular_weight(self):
+    def molecular_mass(self):
+        mw = 0
+        for k in self.composition:
+            mw += Elements[k].atomic_mass * self.composition[k]
+        return Quantity(mw, 'u')
+
+    @property
+    def molar_mass(self):
         mw = 0
         for k in self.composition:
             mw += Elements[k].molar_mass * self.composition[k]
         return Quantity(mw, 'g/mol')
 
-    @property
-    @show_unit
-    def q_crit_sq(self):
-        qcsq = 16 * np.pi * r_e * self.f / self.molecular_volume
-        return Quantity(np.squeeze(qcsq), '1/Å^2')
-
     def _q_crit(self):
-        qcsq = 16 * np.pi * r_e * self.f / self.molecular_volume
+        qcsq = 16 * np.pi * r_e * self._get_f() / self.molecular_volume
         return Quantity(qcsq ** .5, '1/Å')
 
     @property
     @show_unit
+    @enforce_unit_iter((lambda: UnitSettings.UNIT_Q))
     def q_crit(self):
-        return np.squeeze(self._q_crit())
+        return self._q_crit()
 
     @property
     def ttheta_crit(self):
@@ -1114,7 +1140,7 @@ class Compound(BaseElement):
 
     @property
     def molecular_volume(self):
-        mv = self.molecular_weight / self.density / c.N_A
+        mv = self.molecular_mass / self.density
         return Quantity(mv, 'Å^3')
 
     def _repr_html_(self):
@@ -1122,7 +1148,7 @@ class Compound(BaseElement):
         keys = [
             ["Composition",
              self.composition_table.round({'x': 3, 'molar mass': 3, 'comp %': 1, 'mass %': 1})._repr_html_()],
-            ["Molecular Weight", self.molecular_weight],
+            ["Molecular Mass", self.molecular_mass],
             ["Molecular Volume", self.molecular_volume],
             ["Density", self.density],
             ["q<sub>crit</sub>", self.q_crit.flat[0].real],
@@ -1132,12 +1158,13 @@ class Compound(BaseElement):
             ["Energy", self._energy[0]],
             ["q", self._q[0]],
             ["2θ", self._ttheta().flat[0]],
-            ["X-ray formfactor", '-' if self.f.flat[0] == '-' else self.f.flat[0].real * u.electron],
+            ["X-ray formfactor",
+             self._get_f().item(0).real * u.electron],
             ["ρ<sub>xff</sub>",
-             '-' if self.f.flat[0] == '-' else self.f.flat[0].real * u.electron / self.molecular_volume],
+              self._get_f().item(0).real * u.electron / self.molecular_volume],
             ["r<sub>e</sub>ρ<sub>xff</sub>",
-             '-' if self.f.flat[0] == '-' else '%s'%(self.f.flat[0].real / self.molecular_volume * r_e).to('10^10/cm^2').round(4)],
-
+             '%s' % (self._get_f().item(0).real / self.molecular_volume * r_e).to(
+                 '10^10/cm^2').round(4)],
 
         ]
 
@@ -1154,7 +1181,6 @@ class Compound(BaseElement):
                "</table>")
 
         return ans
-
 
     @staticmethod
     def parse_string_to_list(element_str):
@@ -1180,7 +1206,7 @@ class Compound(BaseElement):
                 )
                 res.append([e, n])
             else:
-                #print(element_str)
+                # print(element_str)
                 subsub = re.match(r"\((.*)\)(\d*(?:\.\d+)?)", element_str)
                 nn = (
                     1
@@ -1198,7 +1224,6 @@ class Compound(BaseElement):
                 r = Compound.parse_string_to_list(m)
                 res.append(r[0])
         return res
-
 
     @staticmethod
     def parse_list_to_counter(comp):
@@ -1220,13 +1245,11 @@ class Compound(BaseElement):
 
         return counter
 
-
     @staticmethod
     def parse_formula(formula):
         lst = Compound.parse_string_to_list(formula)
         counter = Compound.parse_list_to_counter(lst)
         return lst, counter
-
 
     @staticmethod
     def formula_to_str(lst):
@@ -1256,29 +1279,25 @@ class Compound(BaseElement):
                 ans.append(Compound.formula_to_str(x))
             return ''.join(ans)
 
-
     def __add__(self, otherCompound):
-        V =  self.molecular_volume + otherCompound.molecular_volume
-        m = self.molecular_weight + otherCompound.molecular_weight
+        V = self.molecular_volume + otherCompound.molecular_volume
+        m = self.molecular_mass + otherCompound.molecular_mass
         formula = self.formula + otherCompound.formula
-        newCp = Compound(formula, density=m/V/c.N_A)
+        newCp = Compound(formula, density=m / V / c.N_A)
 
         return newCp
-
 
     def __mul__(self, multiplier):
-        formula = "(%s)%g"%(self.formula, multiplier)
-        newCp = Compound(formula, density = self.density)
+        formula = "(%s)%g" % (self.formula, multiplier)
+        newCp = Compound(formula, density=self.density)
 
         return newCp
-
 
     def __rmul__(self, multiplier):
-        formula = "(%s)%g"%(self.formula, multiplier)
-        newCp = Compound(formula, density = self.density)
+        formula = "(%s)%g" % (self.formula, multiplier)
+        newCp = Compound(formula, density=self.density)
 
         return newCp
-
 
 
 Elements = {
