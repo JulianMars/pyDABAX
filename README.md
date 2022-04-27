@@ -135,6 +135,12 @@ UnitSettings.UNIT_TTH = 'rad'
 Accessing the X-ray database dabax
 ---------------------------------
 
+Return a list of all available symbols:
+```python
+import pydabax as dbx
+dbx.get_symbols()
+```
+
 Show all available entries for carbon.
 ```python
 import pydabax as dbx
@@ -212,7 +218,7 @@ dbx.get_keys("C")
 
 Get the CXRO Henke table for f1 and f2.
 ```python
-dbx.get_table("C", "cxro_f1f2_henke")
+dbx.get_dabax("C", "cxro_f1f2_henke")
 ```
 
 

@@ -56,6 +56,10 @@ class Dabax:
         ans = list(res[keys[-1]].keys())  # access last key in chain)
         return ans
 
+    def get_symbols(self):
+        res = [x['symbol'] for x in self.db]
+        return res
+
     def get_table(self, symbol, table_name):
         res = self.read_db(symbol)
         df = DataFrame.from_dict(res[table_name]["table"])
