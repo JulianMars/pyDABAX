@@ -255,8 +255,10 @@ class Element(BaseElement):
         self.element_symbol = dabax.get_entry(self.symbol, "element_symbol")
 
     def __repr__(self):
-        return str(self.symbol) + '\n' + "Atomic mass: %s" % self.atomic_mass + '\n' + "X-ray formfactor: %f" % \
-               self.get_f(self._energy[:1], self._q[:1]).flat[0].real
+        ff = self.get_f(self._energy[:1], self._q[:1])
+        ans = str(self.symbol) + '\n' + "Atomic mass: %s" % self.atomic_mass + '\n' + "X-ray formfactor: %s" % \
+              (str(ff.flat[0].real) if ff is not None else '-')
+        return ans
 
     def _repr_html_(self):
 
@@ -264,7 +266,7 @@ class Element(BaseElement):
             ed = self.edges._repr_html_()
         except KeyError:
             ed = ''
-
+        ff = self.get_f(self._energy[:1], self._q[:1])
         keys = [["Symbol", self.symbol],
                 ["Atomic number", self.atomic_number],
                 ["Atomic mass", self.atomic_mass],
@@ -277,7 +279,7 @@ class Element(BaseElement):
                 ["Energy", self._energy[0]],
                 ["q", self._q[0]],
                 ["X-ray formfactor",
-                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
+                 ff.item(0).real * u.electron if ff is not None else '-'],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -286,11 +288,12 @@ class Element(BaseElement):
                 ["σ<sub>coh</sub>", self.neutron_xs_coh],
                 ["σ<sub>inc</sub>", self.neutron_xs_inc],
                 ["absorption (2200m/s)", self.neutron_abs_at_2200mps]]
+        res = [[name, '-' if value is None else value] for name, value in keys]
 
         tab1 = ["<tr> <th>{}</th> <td>{:}</td> </tr>".format(name,
                                                              value if
                                                              isinstance(value, (str, int)) else value.round(4)) for
-                name, value in keys]
+                name, value in res]
         ans = ("<h1>{}</h1>".format(self.name) +
                "<table> " +
                "".join(tab1) +
@@ -303,7 +306,7 @@ class Element(BaseElement):
         try:
             val = self.atomic_constants['values'].loc['AtomicRadius (Å)']
         except KeyError:
-            return '-'
+            return None
         return Quantity(val, 'Å')
 
     @property
@@ -312,7 +315,7 @@ class Element(BaseElement):
         try:
             val = self.atomic_constants['values'].loc['CovalentRadius (Å)']
         except KeyError:
-            return '-'
+            return None
         return Quantity(val, 'Å')
 
     @property
@@ -321,7 +324,7 @@ class Element(BaseElement):
         try:
             val = self.atomic_constants['values'].loc['BoilingPoint (K)']
         except KeyError:
-            return '-'
+            return None
         return Quantity(val, 'K')
 
     @property
@@ -330,7 +333,7 @@ class Element(BaseElement):
         try:
             val = self.atomic_constants['values'].loc['MeltingPoint (K)']
         except KeyError:
-            return '-'
+            return None
         return Quantity(val, 'K')
 
     @property
@@ -341,12 +344,12 @@ class Element(BaseElement):
         if database == 'auto':
             for k in dbs:
                 ans = dbs[k]()
-                if ans:
+                if ans is not None:
                     break
         else:
             db = dbs[database]
             ans = db()
-        return ans if ans else '-'
+        return ans
 
     @property
     @show_unit
@@ -400,12 +403,12 @@ class Element(BaseElement):
         if database == 'auto':
             for k in dbs:
                 ans = dbs[k]()
-                if ans:
+                if ans is not None:
                     break
         else:
             db = dbs[database]
             ans = db()
-        return ans if ans else '-'
+        return ans
 
     @property
     def molecular_mass(self):
@@ -414,7 +417,10 @@ class Element(BaseElement):
     @property
     @show_unit
     def molar_mass(self):
-        return (self.atomic_mass * c.N_A).to('g/mol')
+        try:
+            return (self.atomic_mass * c.N_A).to('g/mol')
+        except TypeError:
+            return None
 
     @property
     @squeezer()
@@ -422,7 +428,7 @@ class Element(BaseElement):
         try:
             ans = self.get_f(self._energy, self._q)
         except(KeyError):
-            ans = ['-']
+            ans = [None]
         return ans
 
     @property
@@ -447,7 +453,7 @@ class Element(BaseElement):
         try:
             val = Quantity(float(self.edges.loc["K"] - self.edges.loc["L II"]), 'keV')
         except(KeyError):
-            val = '-'
+            val = None
         else:
             val = Quantity(val, UnitSettings.UNIT_E)
         return val
@@ -458,7 +464,7 @@ class Element(BaseElement):
         try:
             val = Quantity(float(self.edges.loc["K"] - self.edges.loc["L III"]), 'keV')
         except(KeyError):
-            val = '-'
+            val = None
         else:
             val = Quantity(val, UnitSettings.UNIT_E)
         return val
@@ -473,7 +479,7 @@ class Element(BaseElement):
         try:
             val = Quantity(float(self.edges.loc["K"] - self.edges.loc["M II"]), "keV")
         except(KeyError):
-            val = '-'
+            val = None
         else:
             val = Quantity(val, UnitSettings.UNIT_E)
         return val
@@ -507,9 +513,9 @@ class Element(BaseElement):
         try:
             ans = self._get_nist_b_sears().loc["Coh b (fm)"][0]
         except KeyError:
-            return '-'
+            return None
         if ans == '---':
-            ans = '-'
+            ans = None
         else:
             _ = complex(ans.replace('i', 'j'))
             ans = u.Quantity(_, 'fm')
@@ -521,9 +527,9 @@ class Element(BaseElement):
         try:
             ans = self._get_nist_b_sears().loc["Inc b (fm)"][0]
         except KeyError:
-            return '-'
+            return None
         if ans == '---':
-            ans = '-'
+            ans = None
         else:
             _ = complex(ans.replace('i', 'j'))
             ans = u.Quantity(_, 'fm')
@@ -535,8 +541,8 @@ class Element(BaseElement):
         try:
             ans = self._get_nist_b_sears().loc["Coh xs (barn)"][0]
         except KeyError:
-            return '-'
-        return Quantity(ans, 'barn') if not ans == '---' else '-'
+            return None
+        return Quantity(ans, 'barn') if not ans == '---' else None
 
         # df[]) * unit if not df["Coh xs (barn)"][0] == '---' else np.nan,
 
@@ -546,8 +552,8 @@ class Element(BaseElement):
         try:
             ans = self._get_nist_b_sears().loc["Inc xs (barn)"][0]
         except KeyError:
-            return '-'
-        return Quantity(ans, 'barn') if not ans == '---' else '-'
+            return None
+        return Quantity(ans, 'barn') if not ans == '---' else None
 
     @property
     @show_unit
@@ -555,8 +561,8 @@ class Element(BaseElement):
         try:
             ans = self._get_nist_b_sears().loc["Abs xs at 2200m/s (barn)"][0]
         except KeyError:
-            return '-'
-        return Quantity(ans, 'barn') if not ans == '---' else '-'
+            return None
+        return Quantity(ans, 'barn') if not ans == '---' else None
 
     @property
     def mup(self):
@@ -603,13 +609,16 @@ class Element(BaseElement):
 
         q = Quantity(q, "1/Å").value  # Ensure parameters are in right unit for table
         energy = Quantity(energy, "keV").value
+        try:
+            f = self._get_f1f2(energy, **params)
+            f0 = self.get_f0(q)
+        except KeyError:
+            res = None
+        else:
+            x = np.tile(f, (len(f0), 1)).T
+            y = np.tile(f0, (len(f), 1))
 
-        f = self._get_f1f2(energy, **params)
-        f0 = self.get_f0(q)
-        x = np.tile(f, (len(f0), 1)).T
-        y = np.tile(f0, (len(f), 1))
-
-        res = x + y - self.atomic_number
+            res = x + y - self.atomic_number
 
         return res
 
@@ -799,13 +808,14 @@ class Element(BaseElement):
 
 class Ion(Element):
 
-
     def _repr_html_(self):
 
         try:
             ed = self.edges._repr_html_()
         except:
             ed = ''
+
+        ff = self.get_f(self._energy[:1], self._q[:1])
 
         keys = [["Symbol",
                  "%s<sup>%s</sup>" % (self.element_symbol, (str(abs(self.charge)) + "-" if self.charge < 0 else str(
@@ -819,7 +829,7 @@ class Ion(Element):
                 ["q", self._q[0]],
                 ["2θ", self._ttheta().flat[0]],
                 ["X-ray formfactor",
-                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
+                 ff.item(0).real * u.electron if ff is not None else '-'],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -828,10 +838,12 @@ class Ion(Element):
                 ["σ<sub>coh</sub>", self.neutron_xs_coh],
                 ["σ<sub>inc</sub>", self.neutron_xs_inc],
                 ["absorption (2200m/s)", self.neutron_abs_at_2200mps]]
+
+        res = [[name, '-' if value is None else value] for name, value in keys]
         tab1 = ["<tr> <th>{}</th> <td>{:}</td> </tr>".format(name,
                                                              value if
                                                              isinstance(value, (str, int)) else value.round(4)) for
-                name, value in keys]
+                name, value in res]
         ans = ("<h1>{}({})</h1>".format(self.name,
                                         (str(abs(self.charge)) + "-" if self.charge < 0 else str(
                                             self.charge) + "+")) +
@@ -887,6 +899,7 @@ class Isotope(Element):
         except:
             nn = ''
 
+        ff = self.get_f(self._energy[:1], self._q[:1])
         keys = [["Symbol", "<sup>%s</sup>%s" % (self.mass_number, self.element_symbol)],
                 ["Atomic number", self.atomic_number],
                 ["Atomic mass", self.atomic_mass],
@@ -900,7 +913,7 @@ class Isotope(Element):
                 ["q", self._q[0]],
                 ["2θ", self._ttheta().flat[0]],
                 ["X-ray formfactor",
-                 self.get_f(self._energy[:1], self._q[:1]).item(0).real * u.electron],
+                 ff.item(0).real * u.electron if ff is not None else '-'],
                 ["K<sub>α1</sub>", self.k_alpha_1],
                 ["K<sub>α2</sub>", self.k_alpha_2],
                 ["K<sub>β</sub>", self.k_beta],
@@ -909,11 +922,12 @@ class Isotope(Element):
                 ["σ<sub>coh</sub>", self.neutron_xs_coh],
                 ["σ<sub>inc</sub>", self.neutron_xs_inc],
                 ["absorption (2200m/s)", self.neutron_abs_at_2200mps]]
+        res = [[name, '-' if value is None else value] for name, value in keys]
 
         tab1 = ["<tr> <th>{}</th> <td>{:}</td> </tr>".format(name,
                                                              value if isinstance(value,
                                                                                  (str, int)) else value.round(4))
-                for name, value in keys]
+                for name, value in res]
         ans = ("<h1>{}</h1>".format(self.name,
                                     (str(abs(self.charge)) + "-" if self.charge < 0 else str(
                                         self.charge) + "+")) +
@@ -965,13 +979,27 @@ class ElementCounter:
 
 class Compound(BaseElement):
     def __init__(self, formula, energy='8.047 keV', q='0 1/Å', density='mcgowan'):
+        """
+        Args:
+            formula: Chemical composition, e.g. 'H2O', 'D2O', '(D2O)0.6(H2O)0.4', '(12C)H4', 'OH-', 'YB2Cu3O6.93'
+            energy: X-ray energy, default CuKa
+            q: X-ray momentum transfer
+            density: Density, astropy parsable string e.g. '1 g/cm^3' or '997kg/m^3' OR
+                    'element': Guessing density using tabulated elemental values OR
+                    'mcgowan': Guessing density using tabulated McGowan Volumes.
+                    'mcgowan' is recommended for organics only.
+        """
         super().__init__(q, energy)
         self.formula = formula
         self.composition = formula
-        if density == 'mcgowan':
-            self.density = self._guess_density_mcgowan()
-        elif density == 'element':
-            self.density = self._guess_density_element()
+        try:
+            if density == 'mcgowan':
+                density = self._guess_density_mcgowan()
+            elif density == 'element':
+                density = self._guess_density_element()
+        except TypeError:
+            warnings.warn("Density guessing failed. Using 1 g/cm^3")
+            self.density = '1 g/cm^3'
         else:
             self.density = density
 
@@ -990,10 +1018,14 @@ class Compound(BaseElement):
         res = []
         for x in y.T:
             res.append(Elements[x].molar_mass)
-        y['molar mass'] = Quantity(res, 'g/mol').value
-        y['comp %'] = y['x'].values / y['x'].sum() * 100
-        mass = y['x'] * y['molar mass']
-        y['mass %'] = mass / mass.sum() * 100
+        try:
+            y['molar mass'] = Quantity(res, 'g/mol').value
+        except TypeError:
+            return None
+        else:
+            y['comp %'] = y['x'].values / y['x'].sum() * 100
+            mass = y['x'] * y['molar mass']
+            y['mass %'] = mass / mass.sum() * 100
         return y
 
     @property
@@ -1020,16 +1052,69 @@ class Compound(BaseElement):
     def density(self, value):
         self._density = Quantity(value, 'g/cm^3')
 
-    def _get_f(self):
-        res = np.zeros([len(self._energy), len(self._q)], dtype=np.complex128)
-        for k in self.composition:
-            res += Elements[k].get_f(self._energy, self._q) * self.composition[k]
+    def get_f(self, energy, q, **params):
+        res = np.zeros([len(energy), len(q)], dtype=np.complex128)
+        try:
+            for k in self.composition:
+                res += Elements[k].get_f(energy, q, **params) * self.composition[k]
+        except TypeError:
+            res = None
+        return res
+
+    @property
+    def neutron_b_coh(self):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].neutron_b_coh * self.composition[k]
+        except TypeError:
+            res = None
+        return res
+
+    @property
+    def neutron_b_inc(self):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].neutron_b_inc * self.composition[k]
+        except TypeError:
+            res = None
+        return res
+
+    @property
+    def neutron_xs_coh(self):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].neutron_xs_coh * self.composition[k]
+        except TypeError:
+            res = None
+        return res
+
+    @property
+    def neutron_abs_at_2200mps(self):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].neutron_abs_at_2200mps * self.composition[k]
+        except TypeError:
+            res = None
+        return res
+
+    @property
+    def neutron_xs_inc(self):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].neutron_xs_inc * self.composition[k]
+        except TypeError:
+            res = None
         return res
 
     @property
     @squeezer()
     def f(self):
-        return self._get_f()
+        return self.get_f(self._energy, self._q)
 
     def _guess_density_mcgowan(self):
         V = 0
@@ -1056,25 +1141,40 @@ class Compound(BaseElement):
     @property
     def crossec_thomson(self):
         res = np.zeros_like(self.q.value, dtype=np.complex128)
-        for k in self.composition:
-            res += (Elements[k].get_thomson(self.energy, self.q)).value * self.composition[k]
-        return res / self.n
+        try:
+            for k in self.composition:
+                res += (Elements[k].get_thomson(self.energy, self.q)).value * self.composition[k]
+        except TypeError:
+            res = None
+        else:
+            res /= self.n
+        return res
 
     @property
     def crossec_thomson_sq(self):
 
         ttheta = Compound.calc_ttheta(self.energy, self.q)
         res = np.zeros_like(self.q.value, dtype=np.complex128)
-        for k in self.composition:
-            res += Elements[k].get_f(self.energy, self.q) * self.composition[k]
-        return 0.5 * (1 + np.cos(ttheta) ** 2) * abs(res) ** 2 / self.n ** 2
+        try:
+            for k in self.composition:
+                res += Elements[k].get_f(self.energy, self.q) * self.composition[k]
+        except TypeError:
+            res = None
+        else:
+            res = 0.5 * (1 + np.cos(ttheta) ** 2) * abs(res) ** 2 / self.n ** 2
+        return res
 
     @property
     def crossec_compton(self):
         res = np.zeros_like(self.q.value)
-        for k in self.composition:
-            res += (Elements[k].get_compton(self.energy, self.q)[0]).value * self.composition[k]
-        return res / self.n, Elements[k].get_compton(self.energy, self.q)[1]
+        try:
+            for k in self.composition:
+                res += (Elements[k].get_compton(self.energy, self.q)[0]).value * self.composition[k]
+        except TypeError:
+            res = None
+        else:
+            res = res / self.n, Elements[k].get_compton(self.energy, self.q)[1]
+        return res
 
     @property
     def n(self):
@@ -1103,8 +1203,11 @@ class Compound(BaseElement):
     @property
     def molecular_mass(self):
         mw = 0
-        for k in self.composition:
-            mw += Elements[k].atomic_mass * self.composition[k]
+        try:
+            for k in self.composition:
+                mw += Elements[k].atomic_mass * self.composition[k]
+        except TypeError:
+            return None
         return Quantity(mw, 'u')
 
     @property
@@ -1115,8 +1218,12 @@ class Compound(BaseElement):
         return Quantity(mw, 'g/mol')
 
     def _q_crit(self):
-        qcsq = 16 * np.pi * r_e * self._get_f() / self.molecular_volume
-        return Quantity(qcsq ** .5, '1/Å')
+        try:
+            qcsq = 16 * np.pi * r_e * self.get_f(self._energy, self._q) / self.molecular_volume
+        except TypeError:
+            return None
+        else:
+            return Quantity(qcsq ** .5, '1/Å')
 
     @property
     @show_unit
@@ -1125,55 +1232,79 @@ class Compound(BaseElement):
         return self._q_crit()
 
     @property
+    @squeezer()
     def ttheta_crit(self):
         ans = []
-        for e, q in zip(self._energy, self._q_crit()):
-            ans.append(self.calc_ttheta(e, q))
-        ans = u.Quantity(ans, UnitSettings.UNIT_TTH)
-        return np.squeeze(ans)
+        try:
+            for e, q in zip(self._energy, self._q_crit()):
+                ans.append(self.calc_ttheta(e, q))
+            ans = u.Quantity(ans, UnitSettings.UNIT_TTH)
+        except TypeError:
+            ans = None
+        return ans
 
     @property
     def deltabeta(self):
-
-        db = self.wavelength ** 2 / (2 * np.pi) * r_e / self.molecular_volume * self.f
+        try:
+            db = self.wavelength ** 2 / (2 * np.pi) * r_e / self.molecular_volume * self.f
+        except TypeError:
+            db = None
         return db
 
     @property
     def molecular_volume(self):
-        mv = self.molecular_mass / self.density
+        try:
+            mv = self.molecular_mass / self.density
+        except TypeError:
+            return None
         return Quantity(mv, 'Å^3')
 
     def _repr_html_(self):
 
+        ff = self.get_f(self._energy[:1], self._q[:1])
+
+        cpt = self.composition_table.round(
+            {'x': 3, 'molar mass': 3, 'comp %': 1,
+             'mass %': 1})._repr_html_() if self.composition_table is not None else ""
+
         keys = [
             ["Composition",
-             self.composition_table.round({'x': 3, 'molar mass': 3, 'comp %': 1, 'mass %': 1})._repr_html_()],
-            ["Molecular Mass", self.molecular_mass],
-            ["Molecular Volume", self.molecular_volume],
+             cpt],
+            ["Molecular Mass", self.molecular_mass if self.molecular_mass is not None else '-'],
+            ["Molecular Volume", self.molecular_volume if self.molecular_volume is not None else '-'],
             ["Density", self.density],
-            ["q<sub>crit</sub>", self.q_crit.flat[0].real],
-            ["θ<sub>crit</sub>", self.ttheta_crit.flat[0].real / 2],
-            ["δ", "%.3e" % self.deltabeta.flat[0].real],
-            ["iβ", "i%.3e" % self.deltabeta.flat[0].imag],
+            ["q<sub>crit</sub>", self.q_crit.flat[0].real if self.q_crit is not None else '-'],
+            ["θ<sub>crit</sub>", self.ttheta_crit.flat[0].real / 2 if self.ttheta_crit is not None else '-'],
+            ["δ", "%.3e" % self.deltabeta.flat[0].real if self.deltabeta is not None else '-'],
+            ["iβ", "i%.3e" % self.deltabeta.flat[0].imag if self.deltabeta is not None else '-'],
             ["Energy", self._energy[0]],
             ["q", self._q[0]],
             ["2θ", self._ttheta().flat[0]],
             ["X-ray formfactor",
-             self._get_f().item(0).real * u.electron],
+             ff.item(0).real * u.electron if ff is not None else '-'],
             ["ρ<sub>xff</sub>",
-              self._get_f().item(0).real * u.electron / self.molecular_volume],
+             ff.item(0).real * u.electron / self.molecular_volume if (
+                         (ff is not None) and (self.molecular_volume is not None)) else '-'],
             ["r<sub>e</sub>ρ<sub>xff</sub>",
-             '%s' % (self._get_f().item(0).real / self.molecular_volume * r_e).to(
-                 '10^10/cm^2').round(4)],
+             '%s' % (ff.item(0).real / self.molecular_volume * r_e).to(
+                 '10^10/cm^2').round(4) if (
+                     (ff is not None) and (self.molecular_volume is not None)) else '-'],
+            ["b<sub>coh</sub>", self.neutron_b_coh if self.neutron_b_coh is not None else '-'],
+            ["SLD", (self.neutron_b_coh.real / self.molecular_volume).to(
+                '10^10 / cm^2') if ((self.neutron_b_coh is not None) and (self.molecular_volume is not None)) else '-'],
+            ["b<sub>inc</sub>", self.neutron_b_inc if self.neutron_b_inc is not None else '-'],
+            ["σ<sub>coh</sub>", self.neutron_xs_coh if self.neutron_xs_coh is not None else '-'],
+            ["σ<sub>inc</sub>", self.neutron_xs_inc if self.neutron_xs_inc is not None else '-'],
+            ["absorption (2200m/s)", self.neutron_abs_at_2200mps if self.neutron_abs_at_2200mps is not None else '-'],
 
         ]
-
+        res = [[name, '-' if value is None else value] for name, value in keys]
         tab1 = ["<tr> <th>{}</th> <td>{:}</td> </tr>".format(name,
                                                              value if isinstance(value,
                                                                                  (
                                                                                      str, int, dict)) else value.round(
                                                                  2))
-                for name, value in keys]
+                for name, value in res]
         ans = ("<h1>{}</h1>".format(self.formula_to_str(self._lst)) +
 
                "<table> " +
@@ -1421,6 +1552,7 @@ Elements = {
     "Og": Element("Og"),
     "1H": Isotope("1H"),
     "2H": Isotope("2H"),
+    "D": None,
     "3H": Isotope("3H"),
     "3He": Isotope("3He"),
     "4He": Isotope("4He"),
@@ -1888,7 +2020,8 @@ Elements = {
     "Pu6+": Ion("Pu6+"),
 }
 
-Elements.update({'Li+': Elements['Li1+'],
+Elements.update({"D": Elements['2H'],
+                 'Li+': Elements['Li1+'],
                  "Na+": Elements['Na1+'],
                  "K+": Elements['K1+'],
                  "Cu+": Elements['Cu1+'],
