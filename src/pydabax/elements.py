@@ -1185,20 +1185,49 @@ class Compound(BaseElement):
 
     @property
     def mu(self):
-        return self.mup * self.density
-
-    def get_mu(self, energy):
-        return self.get_mup(energy) * self.density
-
-    def get_mup(self, energy):
-        res = 0
-        for k in self.composition:
-            res += Elements[k].get_mup(energy) * Elements[k].atomic_mass * self.composition[k]
-        return res / self.molecular_mass
+        return self.mup * self.density if self.mup is not None else None
 
     @property
+    @squeezer()
     def mup(self):
-        return self.get_mup(self.energy)
+        return self.get_mup(self._energy)
+
+
+    def get_mu(self, energy):
+        return self.get_mup(energy) * self.density if self.get_mup(energy) is not None else None
+
+    def get_mup(self, energy):
+
+        ans = []
+        for e in energy:
+            res = 0
+            try:
+                for k in self.composition:
+                    res += Elements[k].get_mup(e) * Elements[k].atomic_mass * self.composition[k]
+            except TypeError:
+                res = None
+            ans.append(res)
+        return Quantity(ans) / self.molecular_mass
+
+    @property
+    def attenuation_length(self):
+        return 1/self.mu
+
+
+    @property
+    @squeezer()
+    def x_SLD(self):
+
+        ans = (self.get_f(self._energy, self._q) / self.molecular_volume * r_e).to('10^10/cm^2')
+        return ans
+
+    @property
+    def n_SLD(self):
+        ans = (self.neutron_b_coh.real / self.molecular_volume).to(
+            '10^10 / cm^2')
+        return ans
+
+
 
     @property
     def molecular_mass(self):
@@ -1246,7 +1275,7 @@ class Compound(BaseElement):
     @property
     def deltabeta(self):
         try:
-            db = self.wavelength ** 2 / (2 * np.pi) * r_e / self.molecular_volume * self.f
+            db = self.wavelength ** 2 / (2 * np.pi) * r_e / self.molecular_volume * np.squeeze(self.get_f(self._energy, [0]))
         except TypeError:
             db = None
         return db
@@ -1285,12 +1314,13 @@ class Compound(BaseElement):
             ["ρ<sub>xff</sub>",
              ff.item(0).real * u.electron / self.molecular_volume if (
                          (ff is not None) and (self.molecular_volume is not None)) else '-'],
-            ["r<sub>e</sub>ρ<sub>xff</sub>",
+            ["x-SLD",
              '%s' % (ff.item(0).real / self.molecular_volume * r_e).to(
                  '10^10/cm^2').round(4) if (
                      (ff is not None) and (self.molecular_volume is not None)) else '-'],
+            ["attenuation length", self.attenuation_length.item(0) if self.attenuation_length is not None else '-'],
             ["b<sub>coh</sub>", self.neutron_b_coh if self.neutron_b_coh is not None else '-'],
-            ["SLD", (self.neutron_b_coh.real / self.molecular_volume).to(
+            ["n-SLD", (self.neutron_b_coh.real / self.molecular_volume).to(
                 '10^10 / cm^2') if ((self.neutron_b_coh is not None) and (self.molecular_volume is not None)) else '-'],
             ["b<sub>inc</sub>", self.neutron_b_inc if self.neutron_b_inc is not None else '-'],
             ["σ<sub>coh</sub>", self.neutron_xs_coh if self.neutron_xs_coh is not None else '-'],
@@ -1414,19 +1444,19 @@ class Compound(BaseElement):
         V = self.molecular_volume + otherCompound.molecular_volume
         m = self.molecular_mass + otherCompound.molecular_mass
         formula = self.formula + otherCompound.formula
-        newCp = Compound(formula, density=m / V / c.N_A)
+        newCp = Compound(formula, density=m/V, energy = self._energy, q=self._q)
 
         return newCp
 
     def __mul__(self, multiplier):
         formula = "(%s)%g" % (self.formula, multiplier)
-        newCp = Compound(formula, density=self.density)
+        newCp = Compound(formula, density=self.density, energy = self._energy, q=self._q)
 
         return newCp
 
     def __rmul__(self, multiplier):
         formula = "(%s)%g" % (self.formula, multiplier)
-        newCp = Compound(formula, density=self.density)
+        newCp = Compound(formula, density=self.density, energy = self._energy, q=self._q)
 
         return newCp
 

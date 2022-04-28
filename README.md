@@ -43,15 +43,11 @@ pip install .              # Use the pip package manager to install pyDABAX in y
 ```
 
 
-Usage
+High-level interface
 =====
 
-High-level interface
---------------------
-
 Getting Started 
-_____  
-
+---------------
 Create compound from string with fixed energy.
 ```python
 from pydabax import *
@@ -75,8 +71,9 @@ Elements['O']
 ```
 <h1>Oxygen</h1><table> <tr> <th>Symbol</th> <td>O</td> </tr><tr> <th>Atomic number</th> <td>8</td> </tr><tr> <th>Atomic mass</th> <td>15.9994 u</td> </tr><tr> <th>Charge</th> <td>0</td> </tr><tr> <th>Atomic radius</th> <td>0.65 Angstrom</td> </tr><tr> <th>Covalent radius</th> <td>0.73 Angstrom</td> </tr><tr> <th>Melting point</th> <td>50.35 K</td> </tr><tr> <th>Boiling point</th> <td>90.18 K</td> </tr><tr> <th>Energy</th> <td>8.047 keV</td> </tr><tr> <th>q</th> <td>0.0 1 / Angstrom</td> </tr><tr> <th>X-ray formfactor</th> <td>8.052 electron</td> </tr><tr> <th>K<sub>α1</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>α2</sub></th> <td>0.5249 keV</td> </tr><tr> <th>K<sub>β</sub></th> <td>-</td> </tr><tr> <th>b<sub>coh</sub></th> <td>(5.803+0j) fm</td> </tr><tr> <th>b<sub>inc</sub></th> <td>-</td> </tr><tr> <th>σ<sub>coh</sub></th> <td>4.232 barn</td> </tr><tr> <th>σ<sub>inc</sub></th> <td>0.0008 barn</td> </tr><tr> <th>absorption (2200m/s)</th> <td>0.0002 barn</td> </tr></table>
 
-_____  
-Plot the q-dependent Form factor density:
+
+Plot the q-dependent Form factor density
+---------------------------------------
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
@@ -106,16 +103,20 @@ _ = ax.legend(prop={"size": 8})
 <img src="./blob/formfactor.jpg" alt="formfactor" width="450"/>
 
 Ions and Isotopes
-_____
-pydabax supports all common isotopes and ions.
+------------------
+pydabax supports all common isotopes and ions and fractional formulas. Compounds can be multiplied and added.
 
 ```python
 Compound('2H2O', density="mcgowan") 
 Compound('OH-', density="mcgowan") 
+Compound('YB2Cu3O6.93', density="element") 
+
+#create 0.8 mol/kg aqueous CsCl solution
+cp = 0.8 * Compound('CsCl') + 55.555 * Compound(H2O)
 ```
 
 Units
-_____
+-----
 As the different flavors of x-ray analysis prefers different units, pyDABAX uses astropy to handle physical quantities
 consisting of a value and a unit. Hence, unit handling should be flexible and coherent within the package.
 First, set the preferred global units. Standard units are keV, Å, 1/Å, and °.
@@ -133,7 +134,7 @@ UnitSettings.UNIT_TTH = 'rad'
 ```
 
 Accessing the X-ray database dabax
----------------------------------
+==================================
 
 Return a list of all available symbols:
 ```python
@@ -162,45 +163,7 @@ dbx.get_keys("C")
  'dabax_ComptonProfiles',
  'dabax_CrossSec_BrennanCowan',
  'dabax_CrossSec_Compton_IntegrHubbell',
- 'dabax_CrossSec_Compton_IntegrXop',
- 'dabax_CrossSec_Compton_KleinNishina',
- 'dabax_CrossSec_EPDL97',
- 'dabax_CrossSec_McMaster',
- 'dabax_CrossSec_NISTxaamdi',
- 'dabax_CrossSec_PE_Scofield',
- 'dabax_CrossSec_StormIsrael',
- 'dabax_CrossSec_XCOM',
- 'dabax_CrossSec-Compton_McMaster',
- 'dabax_CrossSec-Rayleigh_McMaster',
- 'dabax_EBindEner',
- 'dabax_EBindEner2',
- 'dabax_Econfiguration',
- 'dabax_f0_CromerMann_old1968',
- 'dabax_f0_CromerMann',
- 'dabax_f0_EPDL97',
- 'dabax_f0_InterTables',
- 'dabax_f0_mf_Kissel',
- 'dabax_f0_rf_Kissel',
- 'dabax_f0_WaasKirf',
- 'dabax_f0_xop',
- 'dabax_f1f2_asf_Kissel',
- 'dabax_f1f2_BrennanCowan',
- 'dabax_f1f2_BrennanCowanLong',
- 'dabax_f1f2_Chantler',
- 'dabax_f1f2_CromerLiberman',
- 'dabax_f1f2_EPDL97',
- 'dabax_f1f2_Henke',
- 'dabax_f1f2_Sasaki',
- 'dabax_f1f2_Windt',
- 'dabax_FluorYield_Elam',
- 'dabax_FluorYield_Krause',
- 'dabax_FluorYield_xraylib',
- 'dabax_isf_Balyuzi',
- 'dabax_isf_Hubbell',
- 'dabax_isf_xop_biggs_brusa_fermi',
- 'dabax_isf_xop_biggs_full_fermi',
- 'dabax_isf_xop_biggs_full',
- 'dabax_isf_xop_biggs_linap_fermi',
+  ... ... ...,
  'dabax_isf_xop_biggs_linap',
  'dabax_JumpRatio_Elam',
  'dabax_Neutron_SLCS_DataBooklet',
@@ -221,20 +184,19 @@ Get the CXRO Henke table for f1 and f2.
 dbx.get_dabax("C", "cxro_f1f2_henke")
 ```
 
-
->E (eV)	f1	f2  
-0	10.0000	-9999.00000	0.703280  
-1	10.1617	-9999.00000	0.707226  
-2	10.3261	-9999.00000	0.707377  
-3	10.4931	-9999.00000	0.707528  
-4	10.6628	-9999.00000	0.707678  
-...	...	...	...  
-497	28135.1000	8.00267	0.002087  
-498	28590.2000	8.00248	0.002013  
-499	29052.6000	8.00230	0.001942  
-500	29522.5000	8.00212	0.001874  
-501	30000.0000	8.00194	0.001808  
-502 rows × 3 columns  
+>E (eV)	f1	f2
+0	10.0000	-9999.00000	0.806885
+1	10.1617	-9999.00000	0.851522
+2	10.3261	-9999.00000	0.898628
+3	10.4931	-9999.00000	0.948341
+4	10.6628	-9999.00000	1.000800
+...	...	...	...
+497	28135.1000	6.00026	0.000515
+498	28590.2000	6.00020	0.000496
+499	29052.6000	6.00013	0.000478
+500	29522.5000	6.00007	0.000460
+501	30000.0000	6.00000	0.000443
+502 rows × 3 columns
 
 
 The database file is in json format and can be thus viewed with all common json viewers.
