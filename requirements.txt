@@ -15,8 +15,8 @@
 # numpy==1.13.3
 # scipy==1.0
 #
-pandas
-tinydb
-numpy
-astropy
+pandas>=1.4.2
+tinydb>=4.7.0
+numpy>=1.23
+astropy>=5.04
 regex
