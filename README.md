@@ -8,7 +8,7 @@ form-factors, absorption edges, and compton scattering.
 
 
 Installation
-===========
+============
 Package
 -------------------
 Install with pip into your current environment.
@@ -44,7 +44,7 @@ pip install .              # Use the pip package manager to install pyDABAX in y
 
 
 High-level interface
-=====
+====================
 
 Getting Started 
 ---------------
@@ -73,12 +73,11 @@ Elements['O']
 
 
 Plot the q-dependent Form factor density
----------------------------------------
+----------------------------------------
 ```python
 import matplotlib.pyplot as plt
 import numpy as np
 from pydabax import Compound
-
 #q-space
 q = np.linspace(0, 35, 101)
 #Create Compounds
@@ -110,7 +109,6 @@ pydabax supports all common isotopes and ions and fractional formulas. Compounds
 Compound('2H2O', density="mcgowan") 
 Compound('OH-', density="mcgowan") 
 Compound('YB2Cu3O6.93', density="element") 
-
 #create 0.8 mol/kg aqueous CsCl solution
 cp = 0.8 * Compound('CsCl') + 55.555 * Compound(H2O)
 ```
@@ -148,36 +146,36 @@ import pydabax as dbx
 dbx.get_keys("C")
 ```
 >['atomic_number',
- 'symbol',
- 'element_symbol',
- 'name',
- 'charge',
- 'mass_number',
- 'mcgowan_volume',
- 'atomic_weight',
- 'nist_f1f2_chantler',
- 'nist_edges_chantler',
- 'cxro_f1f2_henke',
- 'nist_b_sears',
- 'dabax_AtomicConstants',
- 'dabax_ComptonProfiles',
- 'dabax_CrossSec_BrennanCowan',
- 'dabax_CrossSec_Compton_IntegrHubbell',
-  ... ... ...,
- 'dabax_isf_xop_biggs_linap',
- 'dabax_JumpRatio_Elam',
- 'dabax_Neutron_SLCS_DataBooklet',
- 'dabax_Neutron_SLCS_NeutronNews',
- 'dabax_RadiativeRates_KrauseScofield',
- 'dabax_RadiativeRates_L_Scofield',
- 'dabax_XAFS_McKale_K-edge_R=2.5_A',
- 'dabax_XAFS_McKale_K-edge_R=4.0_A',
- 'dabax_XAFS_McKale_L-edge_R=2.5_A',
- 'dabax_XAFS_McKale_L-edge_R=4.0_A',
- 'dabax_XREmission_NIST',
- 'dabax_XREmission',
- 'dabax_XREmissionWeights',
- 'mcgowan_vol']
+'symbol',
+'element_symbol',
+'name',
+'charge',
+'mass_number',
+'mcgowan_volume',
+'atomic_weight',
+'nist_f1f2_chantler',
+'nist_edges_chantler',
+'cxro_f1f2_henke',
+'nist_b_sears',
+'dabax_AtomicConstants',
+'dabax_ComptonProfiles',
+'dabax_CrossSec_BrennanCowan',
+'dabax_CrossSec_Compton_IntegrHubbell',
+... ... ...,
+'dabax_isf_xop_biggs_linap',
+'dabax_JumpRatio_Elam',
+'dabax_Neutron_SLCS_DataBooklet',
+'dabax_Neutron_SLCS_NeutronNews',
+'dabax_RadiativeRates_KrauseScofield',
+'dabax_RadiativeRates_L_Scofield',
+'dabax_XAFS_McKale_K-edge_R=2.5_A',
+'dabax_XAFS_McKale_K-edge_R=4.0_A',
+'dabax_XAFS_McKale_L-edge_R=2.5_A',
+'dabax_XAFS_McKale_L-edge_R=4.0_A',
+'dabax_XREmission_NIST',
+'dabax_XREmission',
+'dabax_XREmissionWeights',
+'mcgowan_vol']
 
 Get the CXRO Henke table for f1 and f2.
 ```python
