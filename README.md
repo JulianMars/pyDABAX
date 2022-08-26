@@ -106,11 +106,11 @@ Ions and Isotopes
 pydabax supports all common isotopes and ions and fractional formulas. Compounds can be multiplied and added.
 
 ```python
-Compound('2H2O', density="mcgowan") 
+Compound('2H2O', density="mcgowan")  #Deuterium
 Compound('OH-', density="mcgowan") 
 Compound('YB2Cu3O6.93', density="element") 
 #create 0.8 mol/kg aqueous CsCl solution
-cp = 0.8 * Compound('CsCl') + 55.555 * Compound(H2O)
+cp = 0.8 * Compound('CsCl') + 55.555 * Compound('H2O')
 ```
 
 Units
