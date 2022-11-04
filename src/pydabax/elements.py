@@ -78,6 +78,28 @@ def unit_iter_parser(inp, unit):
     return res.flatten()
 
 
+def interpolate_lin(x, y, x0):
+    p1 = poly1d(
+        polyfit(
+            x - x0,
+            y,
+            1,
+        )
+    )
+    return p1(0)
+
+
+def interpolate_log(x, y, x0):
+    p1 = poly1d(
+        polyfit(
+            np.log(x),
+            np.log(y),
+            1,
+        )
+    )
+    return np.exp(p1(np.log(x0)))
+
+
 class UnitSettings:
     SHOW_UNIT = True
     SQUEEZE = True
@@ -171,47 +193,32 @@ class BaseElement:
     def interpolate_chantler(energy, df):
         nist = df.values.astype(float).T
         arr = np.abs(nist[0] - energy)
-        idx = arr.argsort()[:2]  # find nearest data-points
         out = []
 
-        def interpolate():
-            pass
+        idx0 = arr.argsort()[0]
+
+        #Make sure one datapoint is below and one above
+        if nist[0, idx0] >= energy:
+            idx = [idx0-1, idx0]
+        else:
+            idx = [idx0, idx0+1]
 
         i = 1
-
-        p1 = poly1d(
-            polyfit(
-                nist[0, idx],
-                nist[i, idx],
-                1,
-            )
-        )
-        out.append(p1(energy))
+        ans = interpolate_lin(nist[0, idx], nist[i, idx], energy)
+        out.append(ans)
+        print(ans)
 
         i = 2
-        """ overflow at absorption edge, no np.float128 in windows?
-        p2 = polyfit(  # nist recommends log-log for f2
-            np.log10(nist[0, idx]),
-            np.log10(nist[i, idx]),
-            1,
-        )
-        print(nist[0, idx], nist[i, idx])
-        print((Energy.dtype, p2[0].dtype, p2[1].dtype))
-        res = (lambda E, m, b: E ** m * 10 ** b)(float(Energy), float(p2[0]), float(p2[1]))
-
-        out.append(res)
-        """
-
-        p1 = poly1d(
-            polyfit(
-                nist[0, idx],
-                nist[i, idx],
-                1,
-            )
-        )
-        out.append(p1(energy))
-
+        ans = interpolate_log(nist[0, idx], nist[i, idx], energy)
+        out.append(ans)
+        print(ans)
         return out
+
+
+    @staticmethod
+    def interpolate_hubble(energy, df):
+        pass
+
 
     @staticmethod
     def calc_q(energy, ttheta):
@@ -626,6 +633,14 @@ class Element(BaseElement):
         mu = self._get_nist_f1f2mu_chantler(energy)['µ/p total (cm2/g)']
         return Quantity(float(mu), 'cm^2/g')
 
+    def _get_dabax_mup_en_hubbell(self, energy):
+        energy = Quantity(energy, "MeV")
+        df = dabax.get_table(self.symbol, "dabax_CrossSec_NISTxaamdi")
+        return df, energy
+
+
+
+
     def _get_dabax_f0_waaskirf(self, q):
         df = dabax.get_table(self.symbol, "dabax_f0_WaasKirf")
         return Element.calc_dabax(q, df)
@@ -664,6 +679,7 @@ class Element(BaseElement):
 
         df = dabax.get_table(self.element_symbol, "nist_f1f2_chantler")
 
+        #3/5CL used as relativistic correction
         rel_corr = float(dabax.get_entry(
             self.symbol,
             ["nist_f1f2_chantler", "relativistic_correction"],
@@ -676,6 +692,7 @@ class Element(BaseElement):
         res = []
         for e in energy:
             f1, f2 = Element.interpolate_chantler(e, df)
+            #equation (3), FFAST documentation
             res.append(f1 + rel_corr + nt_corr + 1j * f2)
 
         return res
