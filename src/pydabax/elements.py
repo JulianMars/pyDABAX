@@ -204,20 +204,52 @@ class BaseElement:
             idx = [idx0, idx0+1]
 
         i = 1
-        ans = interpolate_lin(nist[0, idx], nist[i, idx], energy)
+        try:
+            ans = interpolate_lin(nist[0, idx], nist[i, idx], energy)
+        except IndexError:
+            ans =np.nan
+
         out.append(ans)
-        print(ans)
+        #print(ans)
 
         i = 2
-        ans = interpolate_log(nist[0, idx], nist[i, idx], energy)
+        try:
+            ans = interpolate_log(nist[0, idx], nist[i, idx], energy)
+        except IndexError:
+            ans =np.nan
         out.append(ans)
-        print(ans)
+        #print(ans)
         return out
 
 
     @staticmethod
-    def interpolate_hubble(energy, df):
-        pass
+    def interpolate_hubbell(energy, df):
+        nist = df.values.astype(float).T
+        energy= Quantity(energy, 'MeV').value
+        arr = np.abs(nist[0] - energy)
+        out = []
+
+        srtd = arr.argsort(kind='mergesort')
+        #handle the double value case on edges
+        if (nist[0, srtd[0]]==nist[0, srtd[1]]) and (energy >= nist[0, srtd[0]]):
+            idx0 = srtd[1]
+        else:
+            idx0 = srtd[0]
+
+        # Make sure one datapoint is below and one above
+        if nist[0, idx0] >= energy:
+            idx = [idx0 - 1, idx0]
+        else:
+            idx = [idx0, idx0 + 1]
+
+        i = 1
+        try:
+            ans = interpolate_log(nist[0, idx], nist[i, idx], energy)
+        except IndexError:
+            ans =np.nan
+        out.append(ans)
+        return out
+
 
 
     @staticmethod
@@ -572,11 +604,34 @@ class Element(BaseElement):
         return Quantity(ans, 'barn') if not ans == '---' else None
 
     @property
+    @squeezer()
     def mup(self):
         return self.get_mup(self._energy)
 
+
+    @property
+    @squeezer()
+    def mup_en(self):
+        return self.get_mup_en(self._energy)
+
+    def get_mup_en(self, energy):
+        res = []
+        for e in energy:
+            res.append(self._get_nist_mup_en_hubbell(e))
+        return Quantity(res, 'cm2/g')
+
+
     def get_mup(self, energy):
-        return self._get_nist_mup_chantler(energy)
+        CHANTLER_E_MAX = Quantity('4.329451E+02', 'keV')
+        energy = Quantity(energy, 'keV')
+        res = []
+        for e in energy:
+            if e <= CHANTLER_E_MAX:
+                ans = self._get_nist_mup_chantler(e)
+            else:
+                ans = self._get_nist_mup_hubbell(e)
+            res.append(ans)
+        return Quantity(res, 'cm2/g')
 
     def get_f0(self, q):
         try:
@@ -630,14 +685,16 @@ class Element(BaseElement):
         return res
 
     def _get_nist_mup_chantler(self, energy):
-        mu = self._get_nist_f1f2mu_chantler(energy)['µ/p total (cm2/g)']
-        return Quantity(float(mu), 'cm^2/g')
+        return self._get_nist_f1f2mu_chantler(energy)['µ/p total (cm2/g)']
 
-    def _get_dabax_mup_en_hubbell(self, energy):
-        energy = Quantity(energy, "MeV")
-        df = dabax.get_table(self.symbol, "dabax_CrossSec_NISTxaamdi")
-        return df, energy
 
+    def _get_nist_mup_en_hubbell(self, energy):
+        df = dabax.get_table(self.element_symbol, "nist_atten_hubbell")
+        return Element.interpolate_hubbell(energy, df[['Energy (MeV)', 'μen/ρ (cm2/g)']])
+
+    def _get_nist_mup_hubbell(self, energy):
+        df = dabax.get_table(self.element_symbol, "nist_atten_hubbell")
+        return Element.interpolate_hubbell(energy, df[['Energy (MeV)', 'μ/ρ (cm2/g)']])
 
 
 
@@ -674,6 +731,10 @@ class Element(BaseElement):
         df = dabax.get_table(self.symbol, 'dabax_AtomicConstants').T
         df.columns = ['values']
         return df
+
+
+
+
 
     def _get_nist_f1f2_chantler(self, energy):
 
@@ -1204,27 +1265,52 @@ class Compound(BaseElement):
     def mu(self):
         return self.mup * self.density if self.mup is not None else None
 
+
+    @property
+    def mu_en(self):
+        return self.mup_en * self.density if self.mup_en is not None else None
+
     @property
     @squeezer()
     def mup(self):
         return self.get_mup(self._energy)
 
 
+    @property
+    @squeezer()
+    def mup_en(self):
+        return self.get_mup_en(self._energy)
+
+    """
+    not needed
+    def get_mu_en(self, energy):
+        return self.get_mup_en(energy) * self.density if self.get_mup_en(energy) is not None else None
+
+
     def get_mu(self, energy):
         return self.get_mup(energy) * self.density if self.get_mup(energy) is not None else None
-
+    """
     def get_mup(self, energy):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].get_mup(energy) * Elements[k].atomic_mass * self.composition[k]
+        except TypeError:
+            res = None
 
-        ans = []
-        for e in energy:
-            res = 0
-            try:
-                for k in self.composition:
-                    res += Elements[k].get_mup(e) * Elements[k].atomic_mass * self.composition[k]
-            except TypeError:
-                res = None
-            ans.append(res)
-        return Quantity(ans) / self.molecular_mass
+        return Quantity(res.T.squeeze()) / self.molecular_mass
+
+
+
+    def get_mup_en(self, energy):
+        res = 0
+        try:
+            for k in self.composition:
+                res += Elements[k].get_mup_en(energy) * Elements[k].atomic_mass * self.composition[k]
+        except TypeError:
+            res = None
+
+        return Quantity(res.T.squeeze()) / self.molecular_mass
 
     @property
     def attenuation_length(self):
