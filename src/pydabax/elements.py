@@ -225,6 +225,7 @@ class BaseElement:
     @staticmethod
     def interpolate_hubbell(energy, df):
         nist = df.values.astype(float).T
+        #print("energy: ", energy)
         energy= Quantity(energy, 'MeV').value
         arr = np.abs(nist[0] - energy)
         out = []
@@ -1463,7 +1464,7 @@ class Compound(BaseElement):
                     1
                     if submatch.group(2) == ""
                     else (
-                        int(submatch.group(2))
+                        int(float(submatch.group(2)))
                         if float(submatch.group(2)).is_integer()
                         else float(submatch.group(2))
                     )
@@ -2293,3 +2294,34 @@ Mc = Elements['Mc']
 Lv = Elements['Lv']
 Ts = Elements['Ts']
 Og = Elements['Og']
+
+Compounds = {}
+
+"""tb = dabax.dbb.table('CompoundsDabax')
+for i, cmpd in enumerate(tb):
+    #52 and above is xaamdi, but weird format
+    if i >= 51:
+        break
+    #formula = re.sub("\(|\)", "", cmpd['formula'])
+    Compounds.update({cmpd['name']: Compound(cmpd['formula'], density=cmpd['rho'])})"""
+
+
+tb = dabax.dbb.table('CompoundsHubbell')
+for cmpd in tb:
+    t = cmpd['composition']['mass']
+
+    res = []
+    els = []
+    ns = []
+    for e in t:
+        n = t[e] / Elements[e]._atomic_mass_atomic_constants().value
+        res.append(float(n))
+        els.append(e)
+    ns = np.array(res)
+    ns /= ns.min()
+
+    res = []
+    for e, n in zip(els, ns.round(decimals=4)):
+        res.append("%s%f" % (e, float(n)))
+    formula = "".join(res)
+    Compounds.update({cmpd['name']: Compound(formula, density=cmpd['rho (g/cm3)'])})
