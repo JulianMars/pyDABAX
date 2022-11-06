@@ -131,6 +131,37 @@ UnitSettings.UNIT_R = 'nm'
 UnitSettings.UNIT_TTH = 'rad'
 ```
 
+Dosimetric quantities and compounds
+-----------------------------------
+pyDABAX includes the  X-Ray Attenuation and Absorption for Materials of Dosimetric Interest (XAAMDI) database.
+The Mass Energy Attenuation coefficient can be accessed via
+```python
+from pydabax import *
+print(Compound('YB2Cu3O6.93', density="element") .mu_en)
+print(Compound('YB2Cu3O6.93', density="element") .mup_en)
+```
+Predefined compounds are predefined for convenience.
+```python
+from pydabax import *
+import matplotlib.pyplot as plt
+
+bone = Compounds['Bone, Cortical (ICRU-44)']
+bone.energy = xen
+
+blood =  Compounds['Blood, Whole (ICRU-44)']
+blood.energy = xen
+
+fig, ax = plt.subplots(figsize=[3.375, 3])
+ax.set_ylabel('Energy Attenuation Coeff. μ_en (1/cm)')
+ax.set_xlabel('Photon Energy (keV)')
+ax.set_yscale('log')
+
+ax.plot(xen, bone.mu_en, label = 'Bone, Cortical (ICRU-44)')
+ax.plot(xen, blood.mu_en, label = 'Blood, Whole (ICRU-44)')
+_ = ax.legend(prop={"size": 8})
+```
+<img src="./blob/bone_muen.jpg" alt="bone_muen" width="450"/>
+
 Accessing the X-ray database dabax
 ==================================
 
