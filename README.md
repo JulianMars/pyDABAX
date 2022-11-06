@@ -140,10 +140,13 @@ from pydabax import *
 print(Compound('YB2Cu3O6.93', density="element") .mu_en)
 print(Compound('YB2Cu3O6.93', density="element") .mup_en)
 ```
-Predefined compounds are predefined for convenience.
+Predefined XAAMDI compounds for convenience.
 ```python
 from pydabax import *
 import matplotlib.pyplot as plt
+
+#X-ray energies
+xen = np.linspace(1, 30, 1000)
 
 bone = Compounds['Bone, Cortical (ICRU-44)']
 bone.energy = xen
