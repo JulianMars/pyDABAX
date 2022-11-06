@@ -163,7 +163,7 @@ ax.plot(xen, bone.mu_en, label = 'Bone, Cortical (ICRU-44)')
 ax.plot(xen, blood.mu_en, label = 'Blood, Whole (ICRU-44)')
 _ = ax.legend(prop={"size": 8})
 ```
-<img src="./blob/bone_muen.jpg" alt="bone_muen" width="200"/>
+<img src="./blob/bone_muen.jpg" alt="bone_muen" width="450"/>
 
 Accessing the X-ray database dabax
 ==================================
@@ -233,3 +233,5 @@ dbx.get_dabax("C", "cxro_f1f2_henke")
 
 The database file is in json format and can be thus viewed with all common json viewers.
 Jupyter lab comes with an integrated json viewer.  
+
+<img src="./blob/database.jpg" alt="Database in JSON Viewer" width="300"/>
