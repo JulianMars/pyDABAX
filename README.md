@@ -160,7 +160,7 @@ ax.plot(xen, bone.mu_en, label = 'Bone, Cortical (ICRU-44)')
 ax.plot(xen, blood.mu_en, label = 'Blood, Whole (ICRU-44)')
 _ = ax.legend(prop={"size": 8})
 ```
-<img src="./blob/bone_muen.jpg" alt="bone_muen" width="450"/>
+<img src="./blob/bone_muen.jpg" alt="bone_muen" width="200"/>
 
 Accessing the X-ray database dabax
 ==================================
